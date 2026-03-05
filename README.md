@@ -62,6 +62,15 @@ keiba-data-sharedに蓄積された過去データから学習し、レース結
 - [x] Docker化・本番環境構築
 - [x] 無料公開API
 - [x] レート制限実装
+- [x] 外部API連携（keiba-data-shared）
+- [x] SEO最適化済みWebサイト公開
+
+#### Phase 5: コンテンツ自動化 🚧
+- [ ] 毎日の予想記事自動生成
+- [ ] 予想動画自動生成（MoviePy）
+- [ ] YouTube自動投稿
+- [ ] X（Twitter）自動投稿（RSS連携）
+- [ ] GitHub Actions定期実行
 
 ## ディレクトリ構造
 
@@ -94,7 +103,14 @@ keiba-ai-predictor/
 │   │   └── evaluate.py            # 評価
 │   ├── api/                       # 予想API
 │   │   ├── main.py                # FastAPIアプリ
-│   │   └── predictor.py           # 予想ロジック
+│   │   ├── predictor.py           # 予想ロジック
+│   │   ├── race_data.py           # レースデータ取得
+│   │   └── rate_limiter.py        # レート制限
+│   ├── automation/                # コンテンツ自動化（NEW）
+│   │   ├── daily_prediction.py    # 毎日の予想生成
+│   │   ├── video_generator.py     # 動画自動生成
+│   │   ├── youtube_uploader.py    # YouTube投稿
+│   │   └── run_daily.py           # 統合実行スクリプト
 │   └── utils/                     # ユーティリティ
 │       ├── metrics.py             # 評価指標
 │       └── visualization.py       # 可視化
@@ -353,11 +369,36 @@ docker-compose up -d
 curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
 ```
 
+## 🤖 コンテンツ自動化
+
+毎日の予想を完全自動化し、記事・動画・SNS投稿を自動生成します。
+
+### 自動化フロー
+
+```
+毎日15:00（レース開始前）GitHub Actions実行
+    ↓
+① AI予想生成（注目3レース）
+    ↓
+② 記事自動生成・公開（CMS連携）
+    ↓
+③ 予想動画生成（MoviePy）
+    ↓
+④ YouTube自動投稿
+    ↓
+⑤ X（Twitter）自動投稿（RSS連携）
+```
+
+### 詳細
+
+詳しくは **[AUTOMATION.md](AUTOMATION.md)** を参照してください。
+
 ## 📄 ドキュメント
 
 | ドキュメント | 説明 |
 |------------|------|
 | **[API_USAGE.md](API_USAGE.md)** | API使い方ガイド（一般ユーザー向け） |
+| **[AUTOMATION.md](AUTOMATION.md)** | コンテンツ自動化の仕組み（NEW） |
 | **[RENDER_DEPLOY.md](RENDER_DEPLOY.md)** | Render.comデプロイ手順 |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | 各種クラウドプラットフォームへのデプロイ手順 |
 | **[QUICKSTART.md](QUICKSTART.md)** | 開発者向けクイックスタート |

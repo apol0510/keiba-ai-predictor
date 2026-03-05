@@ -1,0 +1,76 @@
+name: Daily AI Prediction Automation
+
+on:
+  schedule:
+    # 毎日 14:00 JST (05:00 UTC) に実行（レース開始前）
+    - cron: '0 5 * * *'
+
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick fonts-noto-cjk
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-automation.txt
+
+      - name: Setup YouTube credentials
+        if: ${{ secrets.YOUTUBE_CREDENTIALS != '' }}
+        run: |
+          mkdir -p credentials
+          echo '${{ secrets.YOUTUBE_CREDENTIALS }}' > credentials/youtube_credentials.json
+
+      - name: Run daily automation
+        env:
+          API_BASE_URL: 'https://keiba-ai-predictor.onrender.com'
+          YOUTUBE_CREDENTIALS_PATH: 'credentials/youtube_credentials.json'
+        run: |
+          python src/automation/run_daily.py
+
+      - name: Upload generated files as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-prediction-${{ github.run_number }}
+          path: |
+            output/*.md
+            output/*.mp4
+          retention-days: 7
+
+      - name: Commit and push article (optional)
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          if [ -n "$(git status --porcelain output/*.md)" ]; then
+            git add output/*.md
+            git commit -m "🤖 自動生成: $(date +'%Y-%m-%d') の予想記事"
+            git push
+          fi
+        continue-on-error: true
+
+      - name: Notify completion (optional - Slack/Discord webhook)
+        if: ${{ secrets.WEBHOOK_URL != '' }}
+        run: |
+          curl -X POST ${{ secrets.WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"✅ 競馬AI予想: 本日の自動化完了 (${{ github.run_number }})"}'
+        continue-on-error: true
