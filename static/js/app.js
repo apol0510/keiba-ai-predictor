@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
         horseRow.className = 'horse-row';
         horseRow.innerHTML = `
             <input type="number" placeholder="馬番" min="1" required>
-            <input type="text" placeholder="馬名" required>
             <input type="number" placeholder="人気" min="1" required>
         `;
         horsesList.appendChild(horseRow);
@@ -39,14 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 出走馬情報の取得
         const horseRows = document.querySelectorAll('.horse-row');
-        const horses = Array.from(horseRows).map(row => {
+        const horses = Array.from(horseRows).map((row, index) => {
             const inputs = row.querySelectorAll('input');
             return {
                 number: parseInt(inputs[0].value),
-                name: inputs[1].value,
-                popularity: parseInt(inputs[2].value)
+                name: `${inputs[0].value}番馬`,  // 馬名は自動生成
+                popularity: parseInt(inputs[1].value)
             };
-        }).filter(horse => horse.number && horse.name && horse.popularity);
+        }).filter(horse => horse.number && horse.popularity);
 
         if (horses.length === 0) {
             alert('少なくとも1頭の馬情報を入力してください');
