@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from api.predictor import RacePredictor
 from api.rate_limiter import RateLimiter
+from api.race_data import RaceDataFetcher
 
 app = FastAPI(
     title="競馬予想API",
@@ -38,6 +39,9 @@ app.add_middleware(
 
 # 予測器のグローバルインスタンス
 predictor = None
+
+# レースデータ取得
+race_data_fetcher = RaceDataFetcher()
 
 # レート制限（無料公開版として適切な制限）
 rate_limiter = RateLimiter(
@@ -199,6 +203,41 @@ async def get_rate_limit_status(request: Request):
     現在のIP アドレスの残りリクエスト数を確認
     """
     return rate_limiter.get_remaining_requests(request)
+
+
+@app.get("/api/dates")
+async def get_available_dates():
+    """利用可能な日付一覧を取得"""
+    dates = race_data_fetcher.get_available_dates(days=7)
+    return {"dates": dates}
+
+
+@app.get("/api/races/{date}")
+async def get_races_by_date(date: str):
+    """指定日付のレース一覧を取得"""
+    races_data = race_data_fetcher.get_races_by_date(date)
+
+    if not races_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"レースデータが見つかりません: {date}"
+        )
+
+    return races_data
+
+
+@app.get("/api/race/{date}/{race_number}")
+async def get_race_detail(date: str, race_number: int):
+    """指定レースの詳細情報を取得"""
+    race_detail = race_data_fetcher.get_race_detail(date, race_number)
+
+    if not race_detail:
+        raise HTTPException(
+            status_code=404,
+            detail=f"レースが見つかりません: {date} {race_number}R"
+        )
+
+    return race_detail
 
 
 if __name__ == '__main__':

@@ -108,53 +108,33 @@
             <p class="section-subtitle">レース情報と出走馬を入力するだけで、AIが勝率を予測します</p>
 
             <div class="demo-form">
-                <form id="prediction-form">
+                <!-- ステップ1: 日付選択 -->
+                <div id="step-date" class="form-step">
+                    <h3>ステップ1: 開催日を選択</h3>
                     <div class="form-group">
-                        <label for="venue">競馬場</label>
-                        <select id="venue" name="venue" required>
-                            <option value="">選択してください</option>
-                            <option value="大井">大井</option>
-                            <option value="川崎">川崎</option>
-                            <option value="船橋">船橋</option>
-                            <option value="浦和">浦和</option>
+                        <label for="race-date">開催日</label>
+                        <select id="race-date" name="race-date" required>
+                            <option value="">読み込み中...</option>
                         </select>
                     </div>
+                    <button type="button" id="btn-next-race-list" class="btn btn-primary" disabled>次へ（レース選択）</button>
+                </div>
 
-                    <div class="form-group">
-                        <label for="distance">距離（m）</label>
-                        <input type="number" id="distance" name="distance" placeholder="1200" required>
+                <!-- ステップ2: レース選択 -->
+                <div id="step-race" class="form-step" style="display: none;">
+                    <h3>ステップ2: レースを選択</h3>
+                    <div id="race-list" class="race-list">
+                        <p>読み込み中...</p>
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label for="surface">馬場</label>
-                        <select id="surface" name="surface" required>
-                            <option value="">選択してください</option>
-                            <option value="ダート">ダート</option>
-                            <option value="芝">芝</option>
-                        </select>
-                    </div>
-
-                    <div class="horses-input">
-                        <h4>出走馬情報（馬番と人気を入力）</h4>
-                        <div id="horses-list">
-                            <div class="horse-row">
-                                <input type="number" placeholder="馬番" min="1" required>
-                                <input type="number" placeholder="人気" min="1" required>
-                            </div>
-                            <div class="horse-row">
-                                <input type="number" placeholder="馬番" min="1" required>
-                                <input type="number" placeholder="人気" min="1" required>
-                            </div>
-                            <div class="horse-row">
-                                <input type="number" placeholder="馬番" min="1" required>
-                                <input type="number" placeholder="人気" min="1" required>
-                            </div>
-                        </div>
-                        <button type="button" id="add-horse-btn" class="btn-add">+ 馬を追加</button>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">AI予想を実行</button>
-                </form>
+                <!-- ステップ3: 出走馬表示 -->
+                <div id="step-horses" class="form-step" style="display: none;">
+                    <h3>ステップ3: 出走馬確認</h3>
+                    <div id="race-info" class="race-info-box"></div>
+                    <div id="horses-table" class="horses-table"></div>
+                    <button type="button" id="btn-predict" class="btn btn-primary">AI予想を実行</button>
+                </div>
 
                 <div id="prediction-result" class="result-box" style="display: none;">
                     <h3>予想結果</h3>

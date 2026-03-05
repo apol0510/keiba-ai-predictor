@@ -1,74 +1,164 @@
-// 競馬AI予想 - フロントエンドアプリケーション
+// 競馬AI予想 - フロントエンドアプリケーション（新UI）
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM要素の取得
-    const predictionForm = document.getElementById('prediction-form');
-    const addHorseBtn = document.getElementById('add-horse-btn');
-    const horsesList = document.getElementById('horses-list');
+    // グローバル変数
+    let selectedDate = null;
+    let selectedRace = null;
+
+    // DOM要素
+    const raceDateSelect = document.getElementById('race-date');
+    const btnNextRaceList = document.getElementById('btn-next-race-list');
+    const stepDate = document.getElementById('step-date');
+    const stepRace = document.getElementById('step-race');
+    const stepHorses = document.getElementById('step-horses');
+    const raceList = document.getElementById('race-list');
+    const raceInfo = document.getElementById('race-info');
+    const horsesTable = document.getElementById('horses-table');
+    const btnPredict = document.getElementById('btn-predict');
     const predictionResult = document.getElementById('prediction-result');
     const resultContent = document.getElementById('result-content');
 
-    // 競馬場コードマッピング
-    const venueCodeMap = {
-        '大井': 'OI',
-        '川崎': 'KW',
-        '船橋': 'FN',
-        '浦和': 'UR'
-    };
+    // 初期化: 利用可能な日付を取得
+    loadAvailableDates();
 
-    // 馬を追加
-    addHorseBtn.addEventListener('click', () => {
-        const horseRow = document.createElement('div');
-        horseRow.className = 'horse-row';
-        horseRow.innerHTML = `
-            <input type="number" placeholder="馬番" min="1" required>
-            <input type="number" placeholder="人気" min="1" required>
-        `;
-        horsesList.appendChild(horseRow);
+    async function loadAvailableDates() {
+        try {
+            const response = await fetch('/api/dates');
+            const data = await response.json();
+
+            raceDateSelect.innerHTML = '<option value="">選択してください</option>';
+            data.dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = formatDate(date);
+                raceDateSelect.appendChild(option);
+            });
+
+            if (data.dates.length === 0) {
+                raceDateSelect.innerHTML = '<option value="">データがありません</option>';
+            }
+        } catch (error) {
+            console.error('Error loading dates:', error);
+            raceDateSelect.innerHTML = '<option value="">読み込みエラー</option>';
+        }
+    }
+
+    // 日付選択時
+    raceDateSelect.addEventListener('change', () => {
+        selectedDate = raceDateSelect.value;
+        btnNextRaceList.disabled = !selectedDate;
     });
 
-    // フォーム送信処理
-    predictionForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // フォームデータの取得
-        const venue = document.getElementById('venue').value;
-        const distance = parseInt(document.getElementById('distance').value);
-        const surface = document.getElementById('surface').value;
-
-        // 出走馬情報の取得
-        const horseRows = document.querySelectorAll('.horse-row');
-        const horses = Array.from(horseRows).map((row, index) => {
-            const inputs = row.querySelectorAll('input');
-            return {
-                number: parseInt(inputs[0].value),
-                name: `${inputs[0].value}番馬`,  // 馬名は自動生成
-                popularity: parseInt(inputs[1].value)
-            };
-        }).filter(horse => horse.number && horse.popularity);
-
-        if (horses.length === 0) {
-            alert('少なくとも1頭の馬情報を入力してください');
-            return;
-        }
-
-        // APIリクエストデータ
-        const requestData = {
-            date: new Date().toISOString().split('T')[0],
-            venue: venue,
-            venue_code: venueCodeMap[venue] || 'OI',
-            race_number: 1,
-            distance: distance,
-            surface: surface,
-            horses: horses
-        };
+    // 次へボタン（レース一覧表示）
+    btnNextRaceList.addEventListener('click', async () => {
+        if (!selectedDate) return;
 
         try {
-            // ローディング表示
+            const response = await fetch(`/api/races/${selectedDate}`);
+            const data = await response.json();
+
+            displayRaceList(data.races);
+            stepRace.style.display = 'block';
+            stepRace.scrollIntoView({ behavior: 'smooth' });
+        } catch (error) {
+            console.error('Error loading races:', error);
+            raceList.innerHTML = '<p style="color: red;">レース一覧の読み込みに失敗しました</p>';
+        }
+    });
+
+    // レース一覧表示
+    function displayRaceList(races) {
+        raceList.innerHTML = '';
+
+        races.forEach(race => {
+            const raceCard = document.createElement('div');
+            raceCard.className = 'race-card';
+
+            const raceNum = race.raceInfo.raceNumber;
+            const raceName = race.raceInfo.raceName;
+            const distance = race.raceInfo.distance;
+            const surface = race.raceInfo.surface;
+            const startTime = race.raceInfo.startTime;
+            const horsesCount = race.horses.length;
+
+            raceCard.innerHTML = `
+                <div class="race-card-header">
+                    <span class="race-number">${raceNum}</span>
+                    <span class="race-time">${startTime}</span>
+                </div>
+                <div class="race-name">${raceName}</div>
+                <div class="race-details">${distance}m ${surface} / ${horsesCount}頭立て</div>
+            `;
+
+            raceCard.addEventListener('click', () => selectRace(race));
+            raceList.appendChild(raceCard);
+        });
+    }
+
+    // レース選択
+    function selectRace(race) {
+        selectedRace = race;
+        displayRaceDetail(race);
+        stepHorses.style.display = 'block';
+        stepHorses.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // レース詳細表示
+    function displayRaceDetail(race) {
+        const info = race.raceInfo;
+
+        raceInfo.innerHTML = `
+            <h4>${info.raceNumber} ${info.raceName}</h4>
+            <p>${info.date} ${info.track} ${info.startTime}発走</p>
+            <p>${info.distance}m ${info.surface}</p>
+        `;
+
+        // 出走馬テーブル
+        let tableHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>馬番</th>
+                        <th>馬名</th>
+                        <th>騎手</th>
+                        <th>斤量</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        race.horses.forEach(horse => {
+            tableHTML += `
+                <tr>
+                    <td><strong>${horse.number}</strong></td>
+                    <td>${horse.name}</td>
+                    <td>${horse.kisyu}</td>
+                    <td>${horse.kinryo}kg</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+
+        horsesTable.innerHTML = tableHTML;
+    }
+
+    // AI予想実行
+    btnPredict.addEventListener('click', async () => {
+        if (!selectedRace) return;
+
+        try {
+            btnPredict.disabled = true;
+            btnPredict.textContent = 'AI予想実行中...';
+
             resultContent.innerHTML = '<p>AI予想を実行中...</p>';
             predictionResult.style.display = 'block';
 
-            // API呼び出し
+            const requestData = buildPredictionRequest(selectedRace);
+
             const response = await fetch('/api/predict', {
                 method: 'POST',
                 headers: {
@@ -82,27 +172,55 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-
-            // 結果の表示
             displayPredictionResult(data);
 
+            predictionResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } catch (error) {
             console.error('Error:', error);
             resultContent.innerHTML = `
                 <p style="color: red;">エラーが発生しました: ${error.message}</p>
-                <p>もう一度お試しください。</p>
             `;
+        } finally {
+            btnPredict.disabled = false;
+            btnPredict.textContent = 'AI予想を実行';
         }
     });
 
-    // 予想結果の表示
+    // 予想リクエストデータ構築
+    function buildPredictionRequest(race) {
+        const info = race.raceInfo;
+        const venue = info.track;
+        const venueCodeMap = {
+            '大井': 'OI',
+            '川崎': 'KW',
+            '船橋': 'FN',
+            '浦和': 'UR'
+        };
+
+        // 人気は仮で馬番順とする（データに人気情報がない場合）
+        const horses = race.horses.map((horse, index) => ({
+            number: horse.number,
+            name: horse.name,
+            popularity: index + 1  // 仮の人気
+        }));
+
+        return {
+            date: selectedDate,
+            venue: venue,
+            venue_code: venueCodeMap[venue] || 'OI',
+            race_number: parseInt(info.raceNumber.replace('R', '')),
+            distance: parseInt(info.distance),
+            surface: info.surface,
+            horses: horses
+        };
+    }
+
+    // 予想結果表示
     function displayPredictionResult(data) {
         const predictions = data.predictions;
-        const bettingLines = data.betting_lines;
 
         let html = '<div class="predictions-list">';
 
-        // 各馬の予想結果
         predictions.forEach((pred, index) => {
             const percentage = (pred.win_probability * 100).toFixed(1);
             html += `
@@ -122,21 +240,28 @@ document.addEventListener('DOMContentLoaded', () => {
         html += '</div>';
 
         // 買い目提案
-        if (bettingLines && bettingLines.umatan && bettingLines.umatan.length > 0) {
+        if (data.betting_lines && data.betting_lines.umatan && data.betting_lines.umatan.length > 0) {
             html += `
                 <div style="margin-top: 2rem; padding: 1rem; background: white; border-radius: 5px;">
                     <h4 style="margin-bottom: 0.5rem;">推奨買い目（馬単）</h4>
                     <p style="font-size: 1.1rem; color: #667eea; font-weight: 600;">
-                        ${bettingLines.umatan.join(', ')}
+                        ${data.betting_lines.umatan.join(', ')}
                     </p>
                 </div>
             `;
         }
 
         resultContent.innerHTML = html;
+    }
 
-        // 結果までスクロール
-        predictionResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // 日付フォーマット
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+        const weekday = weekdays[date.getDay()];
+        return `${month}月${day}日（${weekday}）`;
     }
 
     // スムーススクロール

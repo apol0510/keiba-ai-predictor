@@ -407,6 +407,105 @@ footer a:hover {
     text-decoration: underline;
 }
 
+/* フォームステップ */
+.form-step {
+    margin-bottom: 2rem;
+}
+
+.form-step h3 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+/* レース一覧 */
+.race-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.race-card {
+    padding: 1.5rem;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.race-card:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+}
+
+.race-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.race-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.race-time {
+    color: #666;
+}
+
+.race-name {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.race-details {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* レース情報ボックス */
+.race-info-box {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.race-info-box h4 {
+    margin-bottom: 1rem;
+}
+
+/* 出走馬テーブル */
+.horses-table {
+    overflow-x: auto;
+    margin-bottom: 2rem;
+}
+
+.horses-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.horses-table th,
+.horses-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.horses-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.horses-table tr:hover {
+    background: #f8f9fa;
+}
+
 /* レスポンシブ */
 @media (max-width: 768px) {
     .hero-title {
@@ -424,5 +523,14 @@ footer a:hover {
 
     .section-title {
         font-size: 2rem;
+    }
+
+    .horses-table {
+        font-size: 0.9rem;
+    }
+
+    .horses-table th,
+    .horses-table td {
+        padding: 0.5rem;
     }
 }
