@@ -1,0 +1,17 @@
+{
+  "date": "2026-03-05",
+  "venue": "大井",
+  "venue_code": "OI",
+  "race_number": 1,
+  "distance": 1200,
+  "surface": "ダート",
+  "weather": "晴",
+  "track_condition": "良",
+  "horses": [
+    {"number": 1, "name": "テストホース1", "jockey": "騎手A", "trainer": "調教師A", "popularity": 1},
+    {"number": 2, "name": "テストホース2", "jockey": "騎手B", "trainer": "調教師B", "popularity": 2},
+    {"number": 3, "name": "テストホース3", "jockey": "騎手C", "trainer": "調教師C", "popularity": 3},
+    {"number": 4, "name": "テストホース4", "jockey": "騎手D", "trainer": "調教師D", "popularity": 4},
+    {"number": 5, "name": "テストホース5", "jockey": "騎手E", "trainer": "調教師E", "popularity": 5}
+  ]
+}

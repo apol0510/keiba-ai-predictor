@@ -46,12 +46,25 @@ class KeibaDataCollector:
                         with open(json_file, 'r', encoding='utf-8') as f:
                             data = json.load(f)
 
+                        # データ構造チェック
+                        if isinstance(data, dict):
+                            # 通常フォーマット
+                            date = data.get('date')
+                            venue = data.get('venue')
+                            venue_code = data.get('venueCode')
+                            races = data.get('races', [])
+                        elif isinstance(data, list):
+                            # リスト形式（古い形式の可能性）
+                            continue
+                        else:
+                            continue
+
                         # 各レースをフラット化
-                        for race in data.get('races', []):
+                        for race in races:
                             race_data = self._flatten_race_results(
-                                date=data['date'],
-                                venue=data['venue'],
-                                venue_code=data['venueCode'],
+                                date=date,
+                                venue=venue,
+                                venue_code=venue_code,
                                 race=race
                             )
                             all_races.extend(race_data)
@@ -86,11 +99,22 @@ class KeibaDataCollector:
                         with open(json_file, 'r', encoding='utf-8') as f:
                             data = json.load(f)
 
-                        for race in data.get('races', []):
+                        # データ構造チェック
+                        if isinstance(data, dict):
+                            date = data.get('date')
+                            venue = data.get('venue', '')
+                            venue_code = data.get('venueCode', '')
+                            races = data.get('races', [])
+                        elif isinstance(data, list):
+                            continue
+                        else:
+                            continue
+
+                        for race in races:
                             race_data = self._flatten_race_results(
-                                date=data['date'],
-                                venue=data.get('venue', ''),
-                                venue_code=data.get('venueCode', ''),
+                                date=date,
+                                venue=venue,
+                                venue_code=venue_code,
                                 race=race
                             )
                             all_races.extend(race_data)
@@ -125,8 +149,24 @@ class KeibaDataCollector:
 
         # 配当情報
         payouts = race.get('payouts', {})
-        tansho_payout = payouts.get('tansho', {}).get('payout', 0)
-        umatan_payout = payouts.get('umatan', {}).get('payout', 0)
+
+        # 単勝配当（リスト形式の場合は最初の要素）
+        tansho = payouts.get('tansho', [])
+        if isinstance(tansho, list) and len(tansho) > 0:
+            tansho_payout = tansho[0].get('payout', 0)
+        elif isinstance(tansho, dict):
+            tansho_payout = tansho.get('payout', 0)
+        else:
+            tansho_payout = 0
+
+        # 馬単配当（リスト形式の場合は最初の要素）
+        umatan = payouts.get('umatan', [])
+        if isinstance(umatan, list) and len(umatan) > 0:
+            umatan_payout = umatan[0].get('payout', 0)
+        elif isinstance(umatan, dict):
+            umatan_payout = umatan.get('payout', 0)
+        else:
+            umatan_payout = 0
 
         # 各着順の馬データ
         for result in race.get('results', []):

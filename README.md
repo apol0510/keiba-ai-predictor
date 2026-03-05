@@ -221,6 +221,71 @@ keiba-ai-predictor（予想API）
 keiba-intelligence表示
 ```
 
+## 🐳 Docker化・本番デプロイ
+
+### ローカルDockerテスト
+
+```bash
+# Dockerイメージビルド
+docker build -t keiba-ai-predictor:latest .
+
+# コンテナ起動
+docker run -d -p 8000:8000 keiba-ai-predictor:latest
+
+# Docker Compose起動（Nginx + API）
+docker-compose up -d
+```
+
+### クラウドデプロイ
+
+詳細は `DEPLOYMENT.md` を参照してください。
+
+**推奨プラットフォーム:**
+1. **Google Cloud Run** - 自動スケーリング、無料枠あり
+2. **Render.com** - 超シンプル、GitHubプッシュで自動デプロイ
+3. **Railway** - 開発者フレンドリー
+
+### GitHub Actions 自動デプロイ
+
+`.github/workflows/deploy.yml` により、`main`ブランチへのプッシュで自動デプロイされます。
+
+**必要なSecrets:**
+- `GCP_PROJECT_ID`: Google CloudプロジェクトID
+- `GCP_SA_KEY`: サービスアカウントのJSONキー
+
+## 📊 性能指標
+
+**検証データでの評価結果:**
+- 的中率（本命）: **33.01%**
+- 的中率（TOP3）: **61.17%**
+- 学習データ: 10,786レース×馬
+- 特徴量: 19個
+
+**重要な特徴量:**
+1. 人気 (55.1%)
+2. 騎手連対率 (11.4%)
+3. 騎手勝率 (8.8%)
+
+## 🔗 keiba-intelligence連携
+
+予想APIをkeiba-intelligenceから呼び出す例:
+
+```javascript
+// Netlify Function
+export async function handler(event, context) {
+  const response = await fetch('https://your-api-url.com/api/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(raceData)
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(await response.json())
+  };
+}
+```
+
 ## ライセンス
 Private Project
 
@@ -229,3 +294,4 @@ Private Project
 **作成日**: 2026-03-05
 **作成者**: Claude Code（クロちゃん）
 **協力者**: マコさん
+**最終更新**: 2026-03-05

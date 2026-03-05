@@ -35,17 +35,20 @@ class RacePredictor:
             予想結果（勝率・役割・買い目）
         """
         # 入力データをDataFrameに変換
-        horses_df = self._prepare_input_data(race_data)
+        features_df, meta_df = self._prepare_input_data(race_data)
 
         # 予測実行
-        win_probabilities = self.model.predict_proba(horses_df)[:, 1]
+        win_probabilities = self.model.predict_proba(features_df)[:, 1]
+
+        # メタ情報と結合
+        result_df = meta_df.copy()
+        result_df['win_probability'] = win_probabilities
 
         # 予測結果をソート（勝率順）
-        horses_df['win_probability'] = win_probabilities
-        horses_df = horses_df.sort_values('win_probability', ascending=False).reset_index(drop=True)
+        result_df = result_df.sort_values('win_probability', ascending=False).reset_index(drop=True)
 
         # 役割・印を割り当て
-        predictions = self._assign_roles(horses_df)
+        predictions = self._assign_roles(result_df)
 
         # 買い目生成
         betting_lines = self._generate_betting_lines(predictions)
@@ -106,10 +109,13 @@ class RacePredictor:
             if col not in df.columns:
                 df[col] = 0
 
-        # 順序を揃える
-        df = df[self.model.feature_cols + ['number', 'name']]
+        # 予測用にメタ情報を保持
+        meta_df = df[['number', 'name']].copy()
 
-        return df
+        # 予測には特徴量のみ使用
+        features_df = df[self.model.feature_cols].copy()
+
+        return features_df, meta_df
 
     def _encode_weather(self, weather: str) -> int:
         """天候エンコーディング"""

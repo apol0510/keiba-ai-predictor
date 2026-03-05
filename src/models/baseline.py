@@ -10,11 +10,22 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-import xgboost as xgb
-import lightgbm as lgb
 import joblib
 from pathlib import Path
 from typing import Tuple, Dict, List
+
+# XGBoost/LightGBMはオプショナル
+try:
+    import xgboost as xgb
+    HAS_XGBOOST = True
+except:
+    HAS_XGBOOST = False
+
+try:
+    import lightgbm as lgb
+    HAS_LIGHTGBM = True
+except:
+    HAS_LIGHTGBM = False
 
 
 class BaselineModel:
@@ -90,6 +101,8 @@ class BaselineModel:
                 n_jobs=-1
             )
         elif self.model_type == 'xgboost':
+            if not HAS_XGBOOST:
+                raise ValueError("XGBoost is not available. Install with: brew install libomp && pip install xgboost")
             self.model = xgb.XGBClassifier(
                 n_estimators=100,
                 max_depth=6,
@@ -100,6 +113,8 @@ class BaselineModel:
                 eval_metric='logloss'
             )
         elif self.model_type == 'lightgbm':
+            if not HAS_LIGHTGBM:
+                raise ValueError("LightGBM is not available. Install with: pip install lightgbm")
             self.model = lgb.LGBMClassifier(
                 n_estimators=100,
                 max_depth=6,
