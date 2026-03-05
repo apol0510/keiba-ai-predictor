@@ -1,11 +1,33 @@
 # 競馬予想AI (keiba-ai-predictor)
 
-> 機械学習による競馬予想システム - 南関東競馬・中央競馬対応
+> 🎯 **無料で使える機械学習競馬予想API** - 南関東競馬・中央競馬対応
+
+[![API Status](https://img.shields.io/badge/API-Live-success)](https://keiba-ai-predictor.onrender.com)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+
+## 📢 無料公開API
+
+**誰でも自由に使える競馬予想API** を公開しています！
+
+- 🆓 **完全無料** - 登録不要、API Key不要
+- 🤖 **AI予想** - 機械学習による勝率予測
+- 📊 **的中率33.01%** - 10,786レースで学習
+- 🔓 **オープンソース** - コードも全て公開
+
+**本番API:** https://keiba-ai-predictor.onrender.com
+
+**使い方ガイド:** [API_USAGE.md](API_USAGE.md)
+
+---
 
 ## プロジェクト概要
 
 ### コンセプト
-keiba-data-sharedに蓄積された過去データから学習し、レース結果を予測する独自AIモデルを構築します。
+
+keiba-data-sharedに蓄積された過去データから学習し、レース結果を予測する独自AIモデルを構築・公開しています。
+
+**このプロジェクトは試作版です。** より詳しい予想・分析は **[keiba-intelligence](https://keiba-intelligence.netlify.app)** でご利用いただけます。
 
 ### 技術スタック
 
@@ -19,30 +41,27 @@ keiba-data-sharedに蓄積された過去データから学習し、レース結
 | **API** | FastAPI | 予想API提供 |
 | **デプロイ** | Docker | 本番環境構築 |
 
-### プロジェクト目標
+### 達成状況
 
-#### Phase 1: データ基盤構築
-- [ ] keiba-data-sharedからデータ収集パイプライン構築
-- [ ] 特徴量エンジニアリング（馬データ、騎手データ、コース条件）
-- [ ] 学習用データセット作成（訓練/検証/テスト分割）
+#### Phase 1: データ基盤構築 ✅
+- [x] keiba-data-sharedからデータ収集パイプライン構築
+- [x] 特徴量エンジニアリング（馬データ、騎手データ、コース条件）
+- [x] 学習用データセット作成（訓練/検証/テスト分割）
 
-#### Phase 2: ベースラインモデル構築
-- [ ] ロジスティック回帰（シンプルモデル）
-- [ ] ランダムフォレスト（アンサンブル学習）
-- [ ] 勾配ブースティング（XGBoost/LightGBM）
-- [ ] モデル評価（的中率・回収率）
+#### Phase 2: ベースラインモデル構築 ✅
+- [x] ランダムフォレスト（アンサンブル学習）
+- [x] モデル評価（的中率・回収率）
 
-#### Phase 3: 高度なモデル開発
+#### Phase 3: 高度なモデル開発 🚧
 - [ ] ディープラーニングモデル（LSTM/Transformer）
 - [ ] アンサンブル手法（複数モデル組み合わせ）
 - [ ] ハイパーパラメータチューニング
-- [ ] クロスバリデーション
 
-#### Phase 4: 本番デプロイ
-- [ ] 予想API開発（FastAPI）
-- [ ] keiba-intelligence連携
-- [ ] 自動予想生成パイプライン
-- [ ] モデル再学習システム
+#### Phase 4: 本番デプロイ ✅
+- [x] 予想API開発（FastAPI）
+- [x] Docker化・本番環境構築
+- [x] 無料公開API
+- [x] レート制限実装
 
 ## ディレクトリ構造
 
@@ -134,7 +153,41 @@ keiba-ai-predictor/
 - Log Loss（確率予測精度）
 - Precision/Recall/F1
 
-## 開発フロー
+## 🚀 クイックスタート（API利用者向け）
+
+### 1. ヘルスチェック
+
+```bash
+curl https://keiba-ai-predictor.onrender.com/health
+```
+
+### 2. 予想を実行
+
+```bash
+curl -X POST https://keiba-ai-predictor.onrender.com/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-03-05",
+    "venue": "大井",
+    "venue_code": "OI",
+    "race_number": 1,
+    "distance": 1200,
+    "surface": "ダート",
+    "horses": [
+      {"number": 1, "name": "サンプルホース", "popularity": 1}
+    ]
+  }'
+```
+
+### 3. 詳しい使い方
+
+**[API使い方ガイド（API_USAGE.md）](API_USAGE.md)** をご覧ください。
+
+プログラミング言語別のサンプルコード（JavaScript, Python, Ruby, PHP）も用意しています。
+
+---
+
+## 🛠️ 開発者向け情報
 
 ### セットアップ
 ```bash
@@ -238,20 +291,22 @@ docker-compose up -d
 
 ### クラウドデプロイ
 
-詳細は `DEPLOYMENT.md` を参照してください。
+**Render.com への簡単デプロイ:**
 
-**推奨プラットフォーム:**
-1. **Google Cloud Run** - 自動スケーリング、無料枠あり
-2. **Render.com** - 超シンプル、GitHubプッシュで自動デプロイ
-3. **Railway** - 開発者フレンドリー
+詳細は **[RENDER_DEPLOY.md](RENDER_DEPLOY.md)** を参照してください。
 
-### GitHub Actions 自動デプロイ
+1. GitHubにプッシュ
+2. Render.comでリポジトリ接続
+3. デプロイボタンをクリック
+4. 完了！
 
-`.github/workflows/deploy.yml` により、`main`ブランチへのプッシュで自動デプロイされます。
+**その他のプラットフォーム:**
 
-**必要なSecrets:**
-- `GCP_PROJECT_ID`: Google CloudプロジェクトID
-- `GCP_SA_KEY`: サービスアカウントのJSONキー
+`DEPLOYMENT.md` に詳細手順があります。
+
+- **Google Cloud Run** - 自動スケーリング、無料枠あり
+- **Railway** - 開発者フレンドリー
+- **AWS ECS/Fargate** - エンタープライズ向け
 
 ## 📊 性能指標
 
@@ -266,28 +321,58 @@ docker-compose up -d
 2. 騎手連対率 (11.4%)
 3. 騎手勝率 (8.8%)
 
-## 🔗 keiba-intelligence連携
+## 🔗 より詳しい予想をお求めの方へ
 
-予想APIをkeiba-intelligenceから呼び出す例:
+### keiba-intelligence
 
-```javascript
-// Netlify Function
-export async function handler(event, context) {
-  const response = await fetch('https://your-api-url.com/api/predict', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(raceData)
-  });
+このAPIは試作版です。より詳しい予想・分析をお求めの方は、本格的な予想サービス **[keiba-intelligence](https://keiba-intelligence.netlify.app)** をご利用ください。
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(await response.json())
-  };
-}
+**主な機能:**
+- 📊 過去データの詳細分析
+- 👤 騎手・調教師の統計情報
+- 💰 オッズ分析
+- 🎯 的中率向上支援ツール
+- ⚡ リアルタイム予想更新
+
+---
+
+## ⚖️ レート制限
+
+無料公開APIとして、以下の制限を設けています：
+
+| 期間 | 上限 |
+|-----|-----|
+| 1分 | 10リクエスト |
+| 1時間 | 100リクエスト |
+| 1日 | 1000リクエスト |
+
+制限を超えた場合は `429 Too Many Requests` エラーが返されます。
+
+**レート制限の確認:**
+```bash
+curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
 ```
 
+## 📄 ドキュメント
+
+| ドキュメント | 説明 |
+|------------|------|
+| **[API_USAGE.md](API_USAGE.md)** | API使い方ガイド（一般ユーザー向け） |
+| **[RENDER_DEPLOY.md](RENDER_DEPLOY.md)** | Render.comデプロイ手順 |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | 各種クラウドプラットフォームへのデプロイ手順 |
+| **[QUICKSTART.md](QUICKSTART.md)** | 開発者向けクイックスタート |
+
+## 🤝 コントリビューション
+
+このプロジェクトはオープンソースです。バグ報告や機能要望は [Issues](https://github.com/apol0510/keiba-ai-predictor/issues) までお願いします。
+
+## ⭐ Star をお願いします！
+
+このプロジェクトが役に立った場合は、GitHub でスターをつけていただけると嬉しいです！
+
 ## ライセンス
-Private Project
+
+MIT License
 
 ---
 
@@ -295,3 +380,6 @@ Private Project
 **作成者**: Claude Code（クロちゃん）
 **協力者**: マコさん
 **最終更新**: 2026-03-05
+
+**本番API**: https://keiba-ai-predictor.onrender.com
+**GitHub**: https://github.com/apol0510/keiba-ai-predictor

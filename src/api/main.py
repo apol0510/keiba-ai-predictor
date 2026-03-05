@@ -3,7 +3,7 @@
 FastAPIによるREST API実装
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from api.predictor import RacePredictor
+from api.rate_limiter import RateLimiter
 
 app = FastAPI(
     title="競馬予想API",
@@ -21,21 +22,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS設定（keiba-intelligenceからのアクセスを許可）
+# CORS設定（全てのオリジンからのアクセスを許可 - 無料公開版）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://keiba-intelligence.netlify.app",
-        "http://localhost:4321",
-        "http://localhost:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],  # 誰でも使える無料API
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 # 予測器のグローバルインスタンス
 predictor = None
+
+# レート制限（無料公開版として適切な制限）
+rate_limiter = RateLimiter(
+    requests_per_minute=10,    # 1分あたり10リクエスト
+    requests_per_hour=100,     # 1時間あたり100リクエスト
+    requests_per_day=1000      # 1日あたり1000リクエスト
+)
 
 
 @app.on_event("startup")
@@ -81,15 +85,27 @@ class HorsePrediction(BaseModel):
 class PredictResponse(BaseModel):
     predictions: List[HorsePrediction]
     betting_lines: Dict[str, List[str]]
+    promotion: Optional[Dict[str, str]] = None  # keiba-intelligenceへの導線
 
 
 @app.get("/")
 async def root():
     """ルートエンドポイント"""
     return {
-        "message": "競馬予想API",
+        "message": "競馬予想API - 機械学習による無料競馬予想",
         "version": "1.0.0",
-        "status": "running"
+        "status": "running",
+        "description": "このAPIは無料で公開されています。AI予想をお試しください。",
+        "endpoints": {
+            "predict": "/api/predict",
+            "model_info": "/api/model-info",
+            "docs": "/docs"
+        },
+        "promotion": {
+            "message": "より詳しい予想・分析は keiba-intelligence で",
+            "url": "https://keiba-intelligence.netlify.app",
+            "description": "プロ級の予想サービス"
+        }
     }
 
 
@@ -103,16 +119,20 @@ async def health_check():
 
 
 @app.post("/api/predict", response_model=PredictResponse)
-async def predict_race(request: PredictRequest):
+async def predict_race(predict_request: PredictRequest, request: Request):
     """
     レース予想エンドポイント
 
     Args:
-        request: レース情報・出走馬情報
+        predict_request: レース情報・出走馬情報
+        request: FastAPI Request（レート制限用）
 
     Returns:
         予想結果（勝率・役割・買い目）
     """
+    # レート制限チェック
+    await rate_limiter.check_rate_limit(request)
+
     if predictor is None:
         raise HTTPException(
             status_code=503,
@@ -121,7 +141,20 @@ async def predict_race(request: PredictRequest):
 
     try:
         # 予想実行
-        result = predictor.predict(request.dict())
+        result = predictor.predict(predict_request.dict())
+
+        # keiba-intelligenceへの導線を追加
+        result['promotion'] = {
+            "message": "より詳しい予想・分析をご希望の方へ",
+            "service_name": "keiba-intelligence",
+            "url": "https://keiba-intelligence.netlify.app",
+            "features": [
+                "過去データ分析",
+                "騎手・調教師の詳細統計",
+                "オッズ分析",
+                "的中率向上支援"
+            ]
+        }
 
         return result
 
@@ -146,6 +179,15 @@ async def get_model_info():
         "features_count": len(predictor.model.feature_cols) if predictor.model.feature_cols else 0,
         "feature_names": predictor.model.feature_cols
     }
+
+
+@app.get("/api/rate-limit-status")
+async def get_rate_limit_status(request: Request):
+    """
+    レート制限ステータス取得（デバッグ用）
+    現在のIP アドレスの残りリクエスト数を確認
+    """
+    return rate_limiter.get_remaining_requests(request)
 
 
 if __name__ == '__main__':
