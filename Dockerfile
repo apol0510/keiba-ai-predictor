@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # アプリケーションコードをコピー
 COPY src/ ./src/
 COPY models/ ./models/
+COPY static/ ./static/
 
 # 非rootユーザー作成
 RUN useradd -m -u 1000 keiba && \

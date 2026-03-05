@@ -5,6 +5,8 @@ FastAPIによるREST API実装
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import sys
@@ -21,6 +23,9 @@ app = FastAPI(
     description="機械学習による競馬予想システム",
     version="1.0.0"
 )
+
+# 静的ファイル配信
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # CORS設定（全てのオリジンからのアクセスを許可 - 無料公開版）
 app.add_middleware(
@@ -90,7 +95,13 @@ class PredictResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """ルートエンドポイント"""
+    """ルートエンドポイント - HTMLページを返す"""
+    return FileResponse('static/index.html')
+
+
+@app.get("/api")
+async def api_root():
+    """APIルートエンドポイント"""
     return {
         "message": "競馬予想API - 機械学習による無料競馬予想",
         "version": "1.0.0",

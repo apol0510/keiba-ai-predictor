@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- SEO最適化 -->
+    <title>競馬AI予想 - 無料で使える機械学習予想サービス | keiba-ai-predictor</title>
+    <meta name="description" content="完全無料の競馬AI予想サービス。機械学習で勝率を予測。南関東競馬・中央競馬対応。登録不要、APIも公開中。">
+    <meta name="keywords" content="競馬,AI,予想,無料,機械学習,南関東競馬,中央競馬,的中率,勝率予測">
+    <meta name="author" content="keiba-ai-predictor">
+
+    <!-- OGP (Open Graph Protocol) -->
+    <meta property="og:title" content="競馬AI予想 - 無料で使える機械学習予想サービス">
+    <meta property="og:description" content="完全無料の競馬AI予想サービス。機械学習で勝率を予測。南関東競馬・中央競馬対応。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://keiba-ai-predictor.onrender.com">
+    <meta property="og:image" content="https://keiba-ai-predictor.onrender.com/static/images/ogp-image.png">
+    <meta property="og:site_name" content="競馬AI予想">
+    <meta property="og:locale" content="ja_JP">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="競馬AI予想 - 無料で使える機械学習予想サービス">
+    <meta name="twitter:description" content="完全無料の競馬AI予想サービス。機械学習で勝率を予測。">
+    <meta name="twitter:image" content="https://keiba-ai-predictor.onrender.com/static/images/ogp-image.png">
+
+    <!-- 構造化データ (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "競馬AI予想",
+      "description": "機械学習による無料競馬予想サービス",
+      "url": "https://keiba-ai-predictor.onrender.com",
+      "applicationCategory": "Sports",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      }
+    }
+    </script>
+
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="canonical" href="https://keiba-ai-predictor.onrender.com">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="container">
+                <h1 class="logo">🐴 競馬AI予想</h1>
+                <ul class="nav-links">
+                    <li><a href="#about">特徴</a></li>
+                    <li><a href="#demo">予想デモ</a></li>
+                    <li><a href="#api">API</a></li>
+                    <li><a href="https://keiba-intelligence.netlify.app" class="cta-link" target="_blank">本格予想サービスへ →</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ヒーローセクション -->
+    <section class="hero">
+        <div class="container">
+            <h2 class="hero-title">AIが競馬を予想する。<br>完全無料。</h2>
+            <p class="hero-subtitle">機械学習モデルが10,786レースから学習<br>的中率33.01%を実現</p>
+            <div class="hero-buttons">
+                <a href="#demo" class="btn btn-primary">今すぐ試す（無料）</a>
+                <a href="https://keiba-intelligence.netlify.app" class="btn btn-secondary" target="_blank">本格的な予想はこちら</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 特徴セクション -->
+    <section id="about" class="features">
+        <div class="container">
+            <h2 class="section-title">選ばれる理由</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🆓</div>
+                    <h3>完全無料</h3>
+                    <p>登録不要、API Key不要。誰でも自由に使えます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI予想</h3>
+                    <p>機械学習（ランダムフォレスト）による勝率予測。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>高い的中率</h3>
+                    <p>10,786レースで学習、的中率33.01%を達成。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔓</div>
+                    <h3>オープンソース</h3>
+                    <p>コードも全て公開。透明性の高い予想システム。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 予想デモセクション -->
+    <section id="demo" class="demo">
+        <div class="container">
+            <h2 class="section-title">予想を試してみる</h2>
+            <p class="section-subtitle">レース情報と出走馬を入力するだけでAI予想が表示されます</p>
+
+            <div class="demo-form">
+                <form id="prediction-form">
+                    <div class="form-group">
+                        <label for="venue">競馬場</label>
+                        <select id="venue" name="venue" required>
+                            <option value="">選択してください</option>
+                            <option value="大井">大井</option>
+                            <option value="川崎">川崎</option>
+                            <option value="船橋">船橋</option>
+                            <option value="浦和">浦和</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="distance">距離（m）</label>
+                        <input type="number" id="distance" name="distance" placeholder="1200" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="surface">馬場</label>
+                        <select id="surface" name="surface" required>
+                            <option value="">選択してください</option>
+                            <option value="ダート">ダート</option>
+                            <option value="芝">芝</option>
+                        </select>
+                    </div>
+
+                    <div class="horses-input">
+                        <h4>出走馬情報</h4>
+                        <div id="horses-list">
+                            <div class="horse-row">
+                                <input type="number" placeholder="馬番" min="1" required>
+                                <input type="text" placeholder="馬名" required>
+                                <input type="number" placeholder="人気" min="1" required>
+                            </div>
+                            <div class="horse-row">
+                                <input type="number" placeholder="馬番" min="1" required>
+                                <input type="text" placeholder="馬名" required>
+                                <input type="number" placeholder="人気" min="1" required>
+                            </div>
+                            <div class="horse-row">
+                                <input type="number" placeholder="馬番" min="1" required>
+                                <input type="text" placeholder="馬名" required>
+                                <input type="number" placeholder="人気" min="1" required>
+                            </div>
+                        </div>
+                        <button type="button" id="add-horse-btn" class="btn-add">+ 馬を追加</button>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">AI予想を実行</button>
+                </form>
+
+                <div id="prediction-result" class="result-box" style="display: none;">
+                    <h3>予想結果</h3>
+                    <div id="result-content"></div>
+                    <div class="result-promotion">
+                        <p>🎯 より詳しい予想・分析をお求めですか？</p>
+                        <a href="https://keiba-intelligence.netlify.app" class="btn btn-secondary" target="_blank">keiba-intelligence で本格予想</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- APIセクション -->
+    <section id="api" class="api-section">
+        <div class="container">
+            <h2 class="section-title">API も無料公開中</h2>
+            <p class="section-subtitle">プログラムから直接呼び出せる競馬予想API</p>
+
+            <div class="api-example">
+                <h3>エンドポイント</h3>
+                <code class="api-url">POST https://keiba-ai-predictor.onrender.com/api/predict</code>
+
+                <h3>サンプルコード</h3>
+                <pre><code>curl -X POST https://keiba-ai-predictor.onrender.com/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date": "2026-03-05",
+    "venue": "大井",
+    "venue_code": "OI",
+    "race_number": 1,
+    "distance": 1200,
+    "surface": "ダート",
+    "horses": [
+      {"number": 1, "name": "サンプルホース", "popularity": 1}
+    ]
+  }'</code></pre>
+
+                <a href="/docs" class="btn btn-outline" target="_blank">API ドキュメントを見る</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTAセクション -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>さらに詳しい予想をお探しですか？</h2>
+            <p>keiba-intelligence なら、過去データ分析・騎手統計・オッズ分析など、<br>プロ級の機能が使えます。</p>
+            <a href="https://keiba-intelligence.netlify.app" class="btn btn-large" target="_blank">keiba-intelligence を見る →</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 競馬AI予想 | <a href="https://github.com/apol0510/keiba-ai-predictor" target="_blank">GitHub</a> | <a href="https://keiba-intelligence.netlify.app" target="_blank">keiba-intelligence</a></p>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
