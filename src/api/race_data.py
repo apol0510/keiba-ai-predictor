@@ -1,19 +1,19 @@
 """
 レースデータ取得モジュール
-keiba-data-sharedから予想データを読み込む
+keiba-data-sharedから予想データを読み込む（外部API経由）
 """
 
 import json
-from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+import httpx
 
 
 class RaceDataFetcher:
-    """keiba-data-sharedからレースデータを取得"""
+    """keiba-data-sharedからレースデータを取得（Netlify経由）"""
 
-    def __init__(self, data_dir: str = "../keiba-data-shared/dist/nankan/predictions"):
-        self.data_dir = Path(data_dir)
+    def __init__(self, base_url: str = "https://keiba-data-shared.netlify.app/nankan/predictions"):
+        self.base_url = base_url
 
     def get_available_dates(self, days: int = 7) -> List[str]:
         """利用可能な日付リストを取得（今日から指定日数分）"""
@@ -23,30 +23,35 @@ class RaceDataFetcher:
         for i in range(days):
             date = today + timedelta(days=i)
             date_str = date.strftime('%Y-%m-%d')
-
-            # ファイルが存在するかチェック
             year, month = date.year, date.strftime('%m')
-            file_path = self.data_dir / str(year) / month / f"{date_str}.json"
 
-            if file_path.exists():
-                dates.append(date_str)
+            # 外部APIからファイル存在確認
+            url = f"{self.base_url}/{year}/{month}/{date_str}.json"
+
+            try:
+                response = httpx.get(url, timeout=5.0)
+                if response.status_code == 200:
+                    dates.append(date_str)
+            except Exception:
+                pass
 
         return dates
 
     def get_races_by_date(self, date: str) -> Optional[Dict]:
         """指定日付のレース一覧を取得"""
         try:
-            # ファイルパス生成
+            # 外部APIからデータ取得
             year, month = date.split('-')[0], date.split('-')[1]
-            file_path = self.data_dir / year / month / f"{date}.json"
+            url = f"{self.base_url}/{year}/{month}/{date}.json"
 
-            if not file_path.exists():
+            response = httpx.get(url, timeout=10.0)
+
+            if response.status_code != 200:
                 return None
 
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
+            data = response.json()
             return data
+
         except Exception as e:
             print(f"Error loading race data: {e}")
             return None
