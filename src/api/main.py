@@ -85,7 +85,7 @@ class HorsePrediction(BaseModel):
 class PredictResponse(BaseModel):
     predictions: List[HorsePrediction]
     betting_lines: Dict[str, List[str]]
-    promotion: Optional[Dict[str, str]] = None  # keiba-intelligenceへの導線
+    promotion: Optional[Dict] = None  # keiba-intelligenceへの導線
 
 
 @app.get("/")
