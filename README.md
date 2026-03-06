@@ -66,11 +66,15 @@ keiba-data-sharedに蓄積された過去データから学習し、レース結
 - [x] SEO最適化済みWebサイト公開
 
 #### Phase 5: コンテンツ自動化 🚧
-- [ ] 毎日の予想記事自動生成
-- [ ] 予想動画自動生成（MoviePy）
-- [ ] YouTube自動投稿
-- [ ] X（Twitter）自動投稿（RSS連携）
-- [ ] GitHub Actions定期実行
+- [x] 毎日の予想記事自動生成
+- [x] 予想動画自動生成（MoviePy）
+- [x] YouTube自動投稿（OAuth設定）
+- [x] 二重投稿防止機能
+- [x] 部分成功対応
+- [x] GitHub Actions定期実行
+- [ ] YouTube初回認証（ローカル実行）
+- [ ] private投稿での動作確認
+- [ ] 本番公開設定
 
 ## ディレクトリ構造
 
@@ -369,29 +373,36 @@ docker-compose up -d
 curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
 ```
 
-## 🤖 コンテンツ自動化
+## 🤖 コンテンツ自動化（初期実装完了）
 
-毎日の予想を完全自動化し、記事・動画・SNS投稿を自動生成します。
+毎日の予想を自動化し、記事・動画・SNS投稿を生成する基盤を実装しました。
 
 ### 自動化フロー
 
 ```
-毎日15:00（レース開始前）GitHub Actions実行
+毎日14:00 JST（GitHub Actions実行）
     ↓
 ① AI予想生成（注目3レース）
     ↓
-② 記事自動生成・公開（CMS連携）
+② 記事自動生成（Markdown）
     ↓
 ③ 予想動画生成（MoviePy）
     ↓
-④ YouTube自動投稿
+④ YouTube自動投稿（OAuth 2.0）
     ↓
-⑤ X（Twitter）自動投稿（RSS連携）
+⑤ X（Twitter）自動投稿（RSS連携 via dlvr.it）
 ```
 
-### 詳細
+### 本番運用前の確認事項
 
-詳しくは **[AUTOMATION.md](AUTOMATION.md)** を参照してください。
+- YouTube初回認証（ローカル実行）
+- `private` 投稿でのテスト
+- ffmpeg/フォント動作確認
+- 二重投稿防止の確認
+
+### 詳細ドキュメント
+
+**[AUTOMATION.md](AUTOMATION.md)** に完全なセットアップ手順があります。
 
 ## 📄 ドキュメント
 
