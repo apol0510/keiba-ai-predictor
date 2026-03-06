@@ -12,6 +12,7 @@ import numpy as np
 from datetime import datetime
 from typing import List, Dict
 import os
+from pathlib import Path
 
 
 class PredictionVideoGenerator:
@@ -36,20 +37,73 @@ class PredictionVideoGenerator:
         hex_color = hex_color.lstrip('#')
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
+    def find_japanese_font(self, size: int, weight: str = 'regular') -> ImageFont.FreeTypeFont:
+        """
+        日本語対応フォントを探索して返す
+
+        Args:
+            size: フォントサイズ
+            weight: 'regular' or 'bold'
+
+        Returns:
+            ImageFont.FreeTypeFont
+
+        Raises:
+            RuntimeError: 日本語フォントが見つからない場合
+        """
+        # フォント候補パス（優先度順）
+        if weight == 'bold':
+            candidates = [
+                # Linux/GitHub Actions (Noto CJK Bold)
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+                # macOS (Hiragino Bold)
+                "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",
+                # Fallback to regular
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
+            ]
+        else:
+            candidates = [
+                # Linux/GitHub Actions (Noto CJK Regular)
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                # macOS (Hiragino Regular)
+                "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
+            ]
+
+        # フォント探索
+        for font_path in candidates:
+            if Path(font_path).exists():
+                try:
+                    return ImageFont.truetype(font_path, size)
+                except Exception as e:
+                    print(f"⚠️  フォント読み込み失敗: {font_path} - {e}")
+                    continue
+
+        # すべて失敗した場合はエラー
+        searched_paths = "\n  - ".join(candidates)
+        raise RuntimeError(
+            f"日本語対応フォントが見つかりません。\n"
+            f"探索したパス:\n  - {searched_paths}\n\n"
+            f"fonts-noto-cjk がインストールされているか確認してください。\n"
+            f"Ubuntu/Debian: sudo apt-get install fonts-noto-cjk"
+        )
+
     def create_opening(self, track: str, date_str: str) -> ImageClip:
         """オープニング画像生成（5秒）"""
         img = Image.new('RGB', (self.width, self.height),
                         color=self.hex_to_rgb(self.colors['primary']))
         draw = ImageDraw.Draw(img)
 
-        try:
-            # 日本語フォント（macOSの場合）
-            title_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 120)
-            subtitle_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 80)
-        except:
-            # フォールバック
-            title_font = ImageFont.load_default()
-            subtitle_font = ImageFont.load_default()
+        # 日本語対応フォント取得
+        title_font = self.find_japanese_font(120, weight='bold')
+        subtitle_font = self.find_japanese_font(80, weight='regular')
 
         # タイトル
         title_text = "AI競馬予想"
@@ -93,12 +147,10 @@ class PredictionVideoGenerator:
                         color=self.hex_to_rgb(self.colors['white']))
         draw = ImageDraw.Draw(img)
 
-        try:
-            race_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 80)
-            horse_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 70)
-            detail_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 50)
-        except:
-            race_font = horse_font = detail_font = ImageFont.load_default()
+        # 日本語対応フォント取得
+        race_font = self.find_japanese_font(80, weight='bold')
+        horse_font = self.find_japanese_font(70, weight='bold')
+        detail_font = self.find_japanese_font(50, weight='regular')
 
         # レース情報ヘッダー（背景色付き）
         header_rect = [(0, 0), (self.width, 200)]
@@ -147,11 +199,9 @@ class PredictionVideoGenerator:
                         color=self.hex_to_rgb(self.colors['secondary']))
         draw = ImageDraw.Draw(img)
 
-        try:
-            title_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 100)
-            url_font = ImageFont.truetype("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc", 70)
-        except:
-            title_font = url_font = ImageFont.load_default()
+        # 日本語対応フォント取得
+        title_font = self.find_japanese_font(100, weight='bold')
+        url_font = self.find_japanese_font(70, weight='bold')
 
         # CTA
         cta_text = "無料で予想を試す"
