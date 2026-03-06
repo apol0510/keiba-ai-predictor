@@ -75,11 +75,3 @@ jobs:
             git push || true
           fi
         continue-on-error: true
-
-      - name: Notify completion (optional)
-        if: ${{ secrets.WEBHOOK_URL }}
-        run: |
-          curl -X POST ${{ secrets.WEBHOOK_URL }} \
-            -H 'Content-Type: application/json' \
-            -d '{"text":"✅ 競馬AI予想: 本日の自動化完了"}'
-        continue-on-error: true
