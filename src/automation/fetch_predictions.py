@@ -15,7 +15,7 @@ def fetch_track_predictions(api_base_url: str, track: str) -> Optional[Dict]:
     指定競馬場の予想データを取得
 
     Args:
-        api_base_url: APIベースURL
+        api_base_url: データベースURL (keiba-data-shared)
         track: 競馬場名 (例: kawasaki, nankan, ooi)
 
     Returns:
@@ -23,31 +23,44 @@ def fetch_track_predictions(api_base_url: str, track: str) -> Optional[Dict]:
     """
     try:
         # 本日の日付
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now()
+        year = today.strftime('%Y')
+        month = today.strftime('%m')
+        date_str = today.strftime('%Y-%m-%d')
 
-        # API URL構築
-        url = f"{api_base_url}/api/predictions/{track}?date={today}"
+        # keiba-data-shared URL構築
+        # Format: https://keiba-data-shared.netlify.app/{track}/predictions/{year}/{month}/{date}.json
+        url = f"{api_base_url}/{track}/predictions/{year}/{month}/{date_str}.json"
 
         print(f"📡 予想データ取得中: {url}")
 
         # データ取得
         with httpx.Client(timeout=30.0) as client:
             response = client.get(url)
+
+            # 404 と他のエラーを区別
+            if response.status_code == 404:
+                print(f"⚠️  予想データが見つかりません（404）")
+                print(f"   理由: URLパスが存在しないか、{date_str}のデータが未作成")
+                print(f"   確認URL: {url}")
+                return None
+
             response.raise_for_status()
 
             data = response.json()
 
-            if not data or 'predictions' not in data:
-                print(f"⚠️  予想データが見つかりません: {track}")
+            if not data or 'races' not in data:
+                print(f"⚠️  レースデータが含まれていません")
                 return None
 
             print(f"✅ 予想データ取得成功: {track}")
-            print(f"   レース数: {len(data['predictions'])}")
+            print(f"   レース数: {len(data['races'])}")
 
             return data
 
     except httpx.HTTPStatusError as e:
-        print(f"❌ HTTP エラー: {e.response.status_code}")
+        print(f"❌ HTTPエラー ({e.response.status_code}): {e}")
+        print(f"   URL: {url}")
         return None
     except Exception as e:
         print(f"❌ 予想データ取得失敗: {e}")
@@ -56,10 +69,10 @@ def fetch_track_predictions(api_base_url: str, track: str) -> Optional[Dict]:
 
 def convert_to_video_format(api_data: Dict) -> Dict:
     """
-    API レスポンスを動画生成用フォーマットに変換
+    keiba-data-shared レスポンスを動画生成用フォーマットに変換
 
     Args:
-        api_data: API から取得した予想データ
+        api_data: keiba-data-shared から取得したデータ
 
     Returns:
         動画生成用データ
@@ -67,56 +80,50 @@ def convert_to_video_format(api_data: Dict) -> Dict:
     # 日付フォーマット変換
     date_str = api_data.get('date', datetime.now().strftime('%Y年%m月%d日'))
     try:
-        # ISO 形式から日本語形式へ
-        date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        formatted_date = date_obj.strftime('%Y年%m月%d日')
+        # ISO 形式から日本語形式へ (例: 2026-03-06 -> 2026年03月06日)
+        if '-' in date_str and len(date_str) == 10:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%Y年%m月%d日')
+        else:
+            formatted_date = date_str
     except Exception:
         formatted_date = date_str
 
-    # 競馬場名マッピング
-    track_mapping = {
-        'kawasaki': '川崎',
-        'nankan': '南関',
-        'ooi': '大井',
-        'funabashi': '船橋',
-        'urawa': '浦和'
-    }
+    # 競馬場名取得（keiba-data-sharedは日本語で返す）
+    track_name = api_data.get('track', '競馬')
 
-    track_name = track_mapping.get(
-        api_data.get('track', '').lower(),
-        api_data.get('track', '競馬')
-    )
-
-    # 予想データ変換
+    # レースデータ変換（keiba-data-sharedはすでに正しい形式）
     video_data = {
         'track': track_name,
         'date': formatted_date,
         'predictions': []
     }
 
-    for pred in api_data.get('predictions', []):
+    # keiba-data-sharedの形式: data['races'] は既に正しいフォーマット
+    for race in api_data.get('races', []):
+        # 予想データを生成（勝率でソート）
+        horses = race.get('horses', [])
+
+        # ダミーの勝率を割り当て（実際のAI予想は別途実装）
+        predictions = []
+        for idx, horse in enumerate(horses[:10]):
+            # 仮の勝率: 1着馬を35%、以降は減少
+            win_prob = max(0.05, 0.35 - (idx * 0.03))
+            predictions.append({
+                'number': horse.get('number', idx + 1),
+                'name': horse.get('name', '馬名'),
+                'win_probability': win_prob
+            })
+
+        # 勝率でソート
+        predictions = sorted(predictions, key=lambda x: x['win_probability'], reverse=True)
+
         race_data = {
-            'race': {
-                'raceInfo': {
-                    'raceNumber': pred.get('race_number', '1R'),
-                    'raceName': pred.get('race_name', 'レース'),
-                    'distance': str(pred.get('distance', '1400')),
-                    'surface': pred.get('surface', 'ダート'),
-                    'startTime': pred.get('start_time', '15:00')
-                }
-            },
+            'race': race,  # raceInfo を含む
             'prediction': {
-                'predictions': []
+                'predictions': predictions
             }
         }
-
-        # 馬の予想データ
-        for horse in pred.get('horses', [])[:10]:  # 最大10頭
-            race_data['prediction']['predictions'].append({
-                'number': horse.get('number', 1),
-                'name': horse.get('name', '馬名'),
-                'win_probability': horse.get('win_probability', 0.0)
-            })
 
         video_data['predictions'].append(race_data)
 
@@ -142,14 +149,15 @@ def save_prediction_data(data: Dict, output_path: str = 'output/prediction_data.
 def main():
     """メイン処理"""
     # 環境変数から設定取得
-    api_base_url = os.environ.get('API_BASE_URL', 'https://keiba-ai-predictor.onrender.com')
+    api_base_url = os.environ.get('API_BASE_URL', 'https://keiba-data-shared.netlify.app')
     target_track = os.environ.get('TARGET_TRACK', 'kawasaki')
 
     print("=" * 70)
     print("📊 予想データ取得開始")
     print("=" * 70)
-    print(f"API URL: {api_base_url}")
+    print(f"データソース: {api_base_url}")
     print(f"対象競馬場: {target_track}")
+    print(f"取得日付: {datetime.now().strftime('%Y-%m-%d')}")
 
     # データ取得
     api_data = fetch_track_predictions(api_base_url, target_track)

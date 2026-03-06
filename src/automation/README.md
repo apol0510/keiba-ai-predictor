@@ -305,7 +305,7 @@ export TTS_ENGINE="gtts"
 リポジトリの Settings > Secrets and variables > Actions で以下を設定:
 
 **必須:**
-- `API_BASE_URL`: 予想APIのURL（デフォルト: https://keiba-ai-predictor.onrender.com）
+- `API_BASE_URL`: データソースURL（デフォルト: https://keiba-data-shared.netlify.app）
 
 **OpenAI使用時のみ:**
 - `OPENAI_API_KEY`: OpenAI APIキー（TTS + DALL-E背景用）
@@ -317,13 +317,13 @@ export TTS_ENGINE="gtts"
 2. "Daily Video Generation Automation" を選択
 3. "Run workflow" をクリック
 4. パラメータを設定:
-   - `target_track`: kawasaki, nankan, ooi など
+   - `target_track`: nankan, ooi, funabashi, urawa など
    - `tts_engine`: gtts (無料) または openai (高品質)
    - `use_ai_backgrounds`: true (AI背景) または false (グラデーション)
 
 **自動実行:**
 - 毎日 14:00 JST (05:00 UTC) に自動実行
-- 対象競馬場は `kawasaki` (川崎)
+- 対象競馬場は `nankan` (南関東)
 
 #### 3. 生成結果確認
 
@@ -377,8 +377,8 @@ GitHub Actions の cache 機能で背景画像を保存:
 ### 1. 予想データ取得
 
 ```bash
-export API_BASE_URL="https://keiba-ai-predictor.onrender.com"
-export TARGET_TRACK="kawasaki"
+export API_BASE_URL="https://keiba-data-shared.netlify.app"
+export TARGET_TRACK="nankan"
 python src/automation/fetch_predictions.py
 ```
 

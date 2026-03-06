@@ -8,9 +8,9 @@ on:
   workflow_dispatch:  # 手動実行も可能
     inputs:
       target_track:
-        description: '対象競馬場 (kawasaki, nankan, ooi, funabashi, urawa)'
+        description: '対象競馬場 (nankan, ooi, funabashi, urawa)'
         required: false
-        default: 'kawasaki'
+        default: 'nankan'
       tts_engine:
         description: 'TTS Engine (gtts, openai)'
         required: false
@@ -56,8 +56,8 @@ jobs:
 
       - name: Fetch prediction data
         env:
-          API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://keiba-ai-predictor.onrender.com' }}
-          TARGET_TRACK: ${{ github.event.inputs.target_track || 'kawasaki' }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://keiba-data-shared.netlify.app' }}
+          TARGET_TRACK: ${{ github.event.inputs.target_track || 'nankan' }}
         run: |
           python src/automation/fetch_predictions.py
 
