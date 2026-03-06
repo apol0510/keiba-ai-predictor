@@ -14,11 +14,11 @@ on:
       tts_engine:
         description: 'TTS Engine (gtts, openai)'
         required: false
-        default: 'gtts'
+        default: 'openai'
       use_ai_backgrounds:
         description: 'Use AI Backgrounds (true, false)'
         required: false
-        default: 'false'
+        default: 'true'
 
 jobs:
   generate-videos:
