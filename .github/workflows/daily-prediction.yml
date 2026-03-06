@@ -77,7 +77,7 @@ jobs:
         continue-on-error: true
 
       - name: Notify completion (optional)
-        if: secrets.WEBHOOK_URL != ''
+        if: ${{ secrets.WEBHOOK_URL }}
         run: |
           curl -X POST ${{ secrets.WEBHOOK_URL }} \
             -H 'Content-Type: application/json' \
