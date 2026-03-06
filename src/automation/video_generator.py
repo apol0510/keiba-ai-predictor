@@ -52,7 +52,7 @@ class PredictionVideoGenerator:
             subtitle_font = ImageFont.load_default()
 
         # タイトル
-        title_text = "🐴 AI競馬予想"
+        title_text = "AI競馬予想"
         title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
         title_width = title_bbox[2] - title_bbox[0]
         draw.text(
