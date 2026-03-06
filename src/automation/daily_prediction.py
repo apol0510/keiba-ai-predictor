@@ -82,8 +82,13 @@ class DailyPredictionAutomation:
 
         return None
 
-    async def generate_daily_article(self, top_n: int = 3) -> Dict:
-        """本日の注目レースの予想記事を生成"""
+    async def generate_article_content(self, top_n: int = 3) -> Dict:
+        """
+        記事コンテンツを生成（CMS公開は別処理）
+
+        このメソッドは記事の内容を生成するだけです。
+        実際のCMS公開やRSS反映は別の責務として分離されています。
+        """
         today_str = datetime.now().strftime('%Y年%m月%d日')
 
         # 1. 本日のレース取得
@@ -122,6 +127,12 @@ class DailyPredictionAutomation:
             'predictions': predictions,
             'summary': f'{track}競馬の注目{len(predictions)}レースをAIが予想。的中率33%の機械学習モデルによる本命・対抗馬を公開。'
         }
+
+    async def generate_daily_article(self, top_n: int = 3) -> Dict:
+        """
+        後方互換性のため残す（generate_article_content()を使用推奨）
+        """
+        return await self.generate_article_content(top_n)
 
     def create_article_markdown(
         self, track: str, date_str: str, predictions: List[Dict]

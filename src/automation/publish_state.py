@@ -1,5 +1,13 @@
 """
 投稿状態管理（二重投稿防止）
+
+注意: この実装は暫定方式です。
+長期本番運用では、以下への移行を推奨します:
+- CMS側での記事ID管理
+- Airtable / Supabase等の外部DB
+- GitHub Artifactsやクラウドストレージ
+
+現在の automation_state.json は開発・テスト用途向けです。
 """
 
 import json

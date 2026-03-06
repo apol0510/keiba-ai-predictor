@@ -41,44 +41,50 @@ async def main():
     print("=" * 60)
     print(f"実行日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-    # 一意キー生成（日付ベース）
+    # 一意キー生成（日付 + 対象 + モード）
     today_str = datetime.now().strftime('%Y-%m-%d')
-    publish_key = f"{today_str}-main"
+    target_track = os.getenv('TARGET_TRACK', 'nankan')  # nankan, ooi, kawasaki等
+    run_mode = os.getenv('RUN_MODE', 'prod')  # prod, test
+    publish_key = f"{today_str}-{target_track}-{run_mode}"
 
     # 既に投稿済みかチェック
     if already_uploaded(publish_key):
         existing_info = get_upload_info(publish_key)
-        print(f"⚠️  本日分はすでに投稿済みです")
+        print(f"⚠️  このキーはすでに投稿済みです: {publish_key}")
         print(f"  YouTube URL: {existing_info.get('youtube_url')}")
         print(f"  投稿日時: {existing_info.get('uploaded_at')}")
         print("\n処理をスキップします。")
         return 0
 
+    print(f"📌 投稿キー: {publish_key}\n")
+
     # ===========================
-    # 1. AI予想生成 + 記事生成
+    # 1. AI予想生成 + 記事コンテンツ生成
     # ===========================
-    print("📊 Step 1: AI予想生成 + 記事生成")
+    print("📊 Step 1: AI予想 + 記事コンテンツ生成")
     print("-" * 60)
 
     article = None
+    article_path = None
     try:
         prediction_system = DailyPredictionAutomation(
             api_base_url=os.getenv('API_BASE_URL', 'https://keiba-ai-predictor.onrender.com')
         )
 
-        article = await prediction_system.generate_daily_article(top_n=3)
+        # 記事コンテンツ生成（CMS公開は別処理）
+        article = await prediction_system.generate_article_content(top_n=3)
 
         if not article['success']:
             print(f"❌ エラー: {article['message']}")
             print("本日のレースデータが見つかりません。")
             return 1
 
-        print(f"✅ 記事生成完了")
+        print(f"✅ 記事コンテンツ生成完了")
         print(f"  タイトル: {article['title']}")
         print(f"  レース数: {len(article['predictions'])}")
         print(f"  競馬場: {article['track']}\n")
 
-        # 記事をファイルに保存
+        # ローカル保存
         output_dir = Path('output')
         output_dir.mkdir(exist_ok=True)
 
@@ -86,7 +92,12 @@ async def main():
         with open(article_path, 'w', encoding='utf-8') as f:
             f.write(article['content'])
 
-        print(f"✅ 記事保存: {article_path}")
+        print(f"✅ ローカル保存: {article_path}")
+
+        # TODO: CMS公開処理（未実装）
+        # publish_to_cms(article)
+        # verify_rss_update(article['url'])
+
         mark_article_published(publish_key, str(article_path))
         print()
 

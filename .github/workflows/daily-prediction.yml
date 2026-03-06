@@ -48,6 +48,8 @@ jobs:
           API_BASE_URL: 'https://keiba-ai-predictor.onrender.com'
           YOUTUBE_TOKEN_PATH: 'credentials/youtube_token.json'
           YOUTUBE_PRIVACY: 'private'
+          TARGET_TRACK: 'nankan'
+          RUN_MODE: 'prod'
         run: |
           python src/automation/run_daily.py
 

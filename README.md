@@ -373,36 +373,52 @@ docker-compose up -d
 curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
 ```
 
-## 🤖 コンテンツ自動化（初期実装完了）
+## 🤖 コンテンツ自動化（本番前テスト段階）
 
-毎日の予想を自動化し、記事・動画・SNS投稿を生成する基盤を実装しました。
+毎日の予想を自動化し、記事・動画・SNS投稿を生成する基盤の初期実装が完了しました。
+**現在は本番運用前のテスト・検証フェーズです。**
 
-### 自動化フロー
+### 自動化フロー（予定）
 
 ```
 毎日14:00 JST（GitHub Actions実行）
     ↓
 ① AI予想生成（注目3レース）
     ↓
-② 記事自動生成（Markdown）
+② 記事コンテンツ生成（Markdown）※CMS公開は別実装
     ↓
 ③ 予想動画生成（MoviePy）
     ↓
-④ YouTube自動投稿（OAuth 2.0）
+④ YouTube自動投稿（OAuth 2.0, private推奨）
     ↓
-⑤ X（Twitter）自動投稿（RSS連携 via dlvr.it）
+⑤ X投稿（RSS連携 via dlvr.it）※CMS公開後
 ```
 
-### 本番運用前の確認事項
+### 本番運用前の必須確認事項
 
-- YouTube初回認証（ローカル実行）
-- `private` 投稿でのテスト
-- ffmpeg/フォント動作確認
-- 二重投稿防止の確認
+1. **YouTube認証**
+   - ローカルで `init_youtube_auth.py` 実行
+   - GitHub Secretsへtoken登録
+
+2. **動画生成テスト**
+   - ffmpeg/日本語フォント動作確認
+   - 5秒ダミー動画での疎通確認
+
+3. **YouTube投稿テスト**
+   - `privacy_status='private'` で試験投稿
+   - 日本語表示崩れの確認
+
+4. **二重投稿防止**
+   - 同日2回実行での動作確認
+   - publish_key の適切性検証
+
+5. **状態管理の移行検討**
+   - `automation_state.json` は暫定方式
+   - 長期運用ではCMS/外部DBへの移行推奨
 
 ### 詳細ドキュメント
 
-**[AUTOMATION.md](AUTOMATION.md)** に完全なセットアップ手順があります。
+**[AUTOMATION.md](AUTOMATION.md)** に完全なセットアップ手順と未検証事項があります。
 
 ## 📄 ドキュメント
 
