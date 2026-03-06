@@ -47,6 +47,18 @@ Thumbs.db
 .env
 .env.local
 
+# YouTube認証情報（機密）
+credentials/
+*.json
+!package.json
+!tsconfig.json
+
+# 自動化の状態ファイル
+automation_state.json
+
+# 生成ファイル
+output/
+
 # Testing
 .coverage
 htmlcov/
