@@ -1,0 +1,98 @@
+name: Daily Video Generation Automation
+
+on:
+  schedule:
+    # 毎日 14:00 JST (05:00 UTC) に実行
+    - cron: '0 5 * * *'
+
+  workflow_dispatch:  # 手動実行も可能
+    inputs:
+      target_track:
+        description: '対象競馬場 (kawasaki, nankan, ooi, funabashi, urawa)'
+        required: false
+        default: 'kawasaki'
+      tts_engine:
+        description: 'TTS Engine (gtts, openai)'
+        required: false
+        default: 'gtts'
+      use_ai_backgrounds:
+        description: 'Use AI Backgrounds (true, false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-videos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install system dependencies (ffmpeg, fonts)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-automation.txt
+
+      - name: Cache AI Backgrounds
+        if: ${{ github.event.inputs.use_ai_backgrounds == 'true' || env.USE_AI_BACKGROUNDS == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: cache/backgrounds
+          key: ai-backgrounds-${{ hashFiles('cache/backgrounds/*.png') }}
+          restore-keys: |
+            ai-backgrounds-
+
+      - name: Fetch prediction data
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://keiba-ai-predictor.onrender.com' }}
+          TARGET_TRACK: ${{ github.event.inputs.target_track || 'kawasaki' }}
+        run: |
+          python src/automation/fetch_predictions.py
+
+      - name: Generate 3-tier videos
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TTS_ENGINE: ${{ github.event.inputs.tts_engine || 'gtts' }}
+          USE_AI_BACKGROUNDS: ${{ github.event.inputs.use_ai_backgrounds || 'false' }}
+        run: |
+          python src/automation/generate_videos.py
+
+      - name: Upload generated videos as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-videos-${{ github.run_number }}
+          path: |
+            output/*.mp4
+            output/*.png
+            output/*.json
+          retention-days: 7
+
+      - name: Create release summary
+        if: success()
+        run: |
+          echo "## 🎬 動画生成完了" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 生成された動画" >> $GITHUB_STEP_SUMMARY
+          ls -lh output/*.mp4 | awk '{print "- " $9 " (" $5 ")"}' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### サムネイル" >> $GITHUB_STEP_SUMMARY
+          ls -lh output/*.png | awk '{print "- " $9}' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ 動画生成失敗" >> $GITHUB_STEP_SUMMARY
+          echo "ログを確認してください" >> $GITHUB_STEP_SUMMARY

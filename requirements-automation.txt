@@ -8,10 +8,16 @@ numpy>=1.24.0,<2.0.0
 
 # 動画生成
 moviepy==1.0.3
-Pillow>=10.0.0
-imageio==2.31.6
+imageio>=2.35.0
 imageio-ffmpeg>=0.4.9
 decorator>=4.4.2
+
+# TTS (Text-to-Speech) ナレーション生成
+gTTS>=2.5.0
+openai>=1.0.0
+
+# オーディオ処理
+pydub>=0.25.1
 
 # YouTube API
 google-api-python-client>=2.100.0

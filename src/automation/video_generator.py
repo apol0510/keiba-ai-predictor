@@ -1,27 +1,72 @@
 """
 予想動画自動生成
 MoviePyを使用してAI予想を動画化
+BGM・ナレーション・デザイン改善版
 """
 
 from moviepy.editor import (
     ImageClip, TextClip, CompositeVideoClip,
-    concatenate_videoclips, AudioFileClip
+    concatenate_videoclips, AudioFileClip, CompositeAudioClip
 )
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 import os
 from pathlib import Path
+from gtts import gTTS
+import tempfile
+
+# OpenAI TTS (optional)
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
 
 
 class PredictionVideoGenerator:
     """予想動画を自動生成"""
 
-    def __init__(self, width: int = 1920, height: int = 1080):
+    def __init__(self, width: int = 1920, height: int = 1080,
+                 openai_api_key: Optional[str] = None,
+                 tts_engine: str = 'gtts',
+                 use_ai_backgrounds: bool = False,
+                 background_cache_dir: str = 'cache/backgrounds'):
+        """
+        Args:
+            width: 動画の幅
+            height: 動画の高さ
+            openai_api_key: OpenAI APIキー（OpenAI TTS/DALL-E使用時）
+            tts_engine: 'gtts' or 'openai' - 使用するTTSエンジン
+            use_ai_backgrounds: AI生成背景を使用するか
+            background_cache_dir: 背景画像キャッシュディレクトリ
+        """
         self.width = width
         self.height = height
         self.fps = 24
+        self.tts_engine = tts_engine
+        self.use_ai_backgrounds = use_ai_backgrounds
+        self.background_cache_dir = Path(background_cache_dir)
+
+        # キャッシュディレクトリ作成
+        if use_ai_backgrounds:
+            self.background_cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # OpenAI設定
+        self.openai_client = None
+        if (tts_engine == 'openai' or use_ai_backgrounds) and OPENAI_AVAILABLE:
+            api_key = openai_api_key or os.environ.get('OPENAI_API_KEY')
+            if api_key:
+                self.openai_client = OpenAI(api_key=api_key)
+            else:
+                print("⚠️  OPENAI_API_KEYが設定されていません。")
+                if tts_engine == 'openai':
+                    print("   gTTSにフォールバックします。")
+                    self.tts_engine = 'gtts'
+                if use_ai_backgrounds:
+                    print("   AI背景を無効化します。")
+                    self.use_ai_backgrounds = False
 
         # カラースキーム（keiba-ai-predictorのブランドカラー）
         self.colors = {
@@ -95,10 +140,210 @@ class PredictionVideoGenerator:
             f"Ubuntu/Debian: sudo apt-get install fonts-noto-cjk"
         )
 
+    def generate_narration(self, text: str) -> Optional[str]:
+        """
+        ナレーション音声を生成（OpenAI TTS or gTTS）
+
+        Args:
+            text: ナレーション内容
+
+        Returns:
+            生成された音声ファイルのパス（一時ファイル）
+        """
+        try:
+            if self.tts_engine == 'openai' and self.openai_client:
+                return self._generate_openai_tts(text)
+            else:
+                return self._generate_gtts(text)
+        except Exception as e:
+            print(f"⚠️  ナレーション生成エラー: {e}")
+            return None
+
+    def _generate_openai_tts(self, text: str) -> Optional[str]:
+        """
+        OpenAI TTSで音声生成
+
+        Args:
+            text: ナレーション内容
+
+        Returns:
+            生成された音声ファイルのパス
+        """
+        try:
+            response = self.openai_client.audio.speech.create(
+                model="tts-1",  # tts-1 or tts-1-hd
+                voice="alloy",   # alloy, echo, fable, onyx, nova, shimmer
+                input=text,
+                speed=1.0
+            )
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+            response.stream_to_file(temp_file.name)
+            print(f"✅ OpenAI TTS音声生成: {len(text)}文字")
+            return temp_file.name
+        except Exception as e:
+            print(f"⚠️  OpenAI TTS生成エラー: {e}")
+            print("   gTTSにフォールバックします...")
+            return self._generate_gtts(text)
+
+    def _generate_gtts(self, text: str) -> Optional[str]:
+        """
+        gTTSで音声生成（フォールバック用）
+
+        Args:
+            text: ナレーション内容
+
+        Returns:
+            生成された音声ファイルのパス
+        """
+        try:
+            tts = gTTS(text=text, lang='ja', slow=False)
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+            tts.save(temp_file.name)
+            return temp_file.name
+        except Exception as e:
+            print(f"⚠️  gTTS生成エラー: {e}")
+            return None
+
+    def generate_ai_background(self, track: str, scene_type: str = 'opening') -> Optional[str]:
+        """
+        DALL-EでAI背景画像を生成（キャッシュ機能付き）
+
+        Args:
+            track: 競馬場名（例: '川崎'）
+            scene_type: 'opening', 'race', 'ending'
+
+        Returns:
+            生成された画像ファイルのパス（キャッシュ済み）
+        """
+        if not self.use_ai_backgrounds or not self.openai_client:
+            return None
+
+        # キャッシュファイル名
+        cache_filename = f"{track}_{scene_type}.png"
+        cache_path = self.background_cache_dir / cache_filename
+
+        # キャッシュがあれば使用
+        if cache_path.exists():
+            print(f"✅ キャッシュ使用: {cache_filename}")
+            return str(cache_path)
+
+        # プロンプト生成
+        prompts = {
+            'opening': f"{track} horse racing stadium at night, dramatic lighting, cinematic, professional sports photography, high quality, atmospheric",
+            'race': f"{track} horse racing track, aerial view, professional photography, cinematic lighting, high quality",
+            'ending': f"horse racing stadium sunset, beautiful sky, cinematic, professional photography, high quality"
+        }
+
+        prompt = prompts.get(scene_type, prompts['opening'])
+
+        try:
+            print(f"🎨 AI背景生成中: {track} ({scene_type})...")
+
+            response = self.openai_client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1792x1024",  # 横長（動画に最適）
+                quality="standard",  # "hd" or "standard"
+                n=1
+            )
+
+            # 画像URLを取得
+            image_url = response.data[0].url
+
+            # 画像をダウンロード
+            import requests
+            img_response = requests.get(image_url)
+
+            # キャッシュに保存
+            with open(cache_path, 'wb') as f:
+                f.write(img_response.content)
+
+            print(f"✅ AI背景生成完了: {cache_filename}")
+            return str(cache_path)
+
+        except Exception as e:
+            print(f"⚠️  AI背景生成エラー: {e}")
+            print("   グラデーション背景にフォールバックします。")
+            return None
+
+    def load_and_resize_background(self, image_path: str) -> Image.Image:
+        """
+        背景画像を読み込んで動画サイズにリサイズ
+
+        Args:
+            image_path: 画像ファイルのパス
+
+        Returns:
+            リサイズされた画像
+        """
+        try:
+            img = Image.open(image_path)
+            # アスペクト比を保ちながらリサイズ
+            img = img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+            return img
+        except Exception as e:
+            print(f"⚠️  画像読み込みエラー: {e}")
+            return None
+
+    def create_gradient_background(self, color1_hex: str, color2_hex: str,
+                                   direction: str = 'vertical') -> Image.Image:
+        """
+        グラデーション背景を生成
+
+        Args:
+            color1_hex: 開始色
+            color2_hex: 終了色
+            direction: 'vertical' or 'horizontal'
+
+        Returns:
+            グラデーション画像
+        """
+        img = Image.new('RGB', (self.width, self.height))
+        draw = ImageDraw.Draw(img)
+
+        color1 = self.hex_to_rgb(color1_hex)
+        color2 = self.hex_to_rgb(color2_hex)
+
+        if direction == 'vertical':
+            for y in range(self.height):
+                ratio = y / self.height
+                r = int(color1[0] * (1 - ratio) + color2[0] * ratio)
+                g = int(color1[1] * (1 - ratio) + color2[1] * ratio)
+                b = int(color1[2] * (1 - ratio) + color2[2] * ratio)
+                draw.line([(0, y), (self.width, y)], fill=(r, g, b))
+        else:  # horizontal
+            for x in range(self.width):
+                ratio = x / self.width
+                r = int(color1[0] * (1 - ratio) + color2[0] * ratio)
+                g = int(color1[1] * (1 - ratio) + color2[1] * ratio)
+                b = int(color1[2] * (1 - ratio) + color2[2] * ratio)
+                draw.line([(x, 0), (x, self.height)], fill=(r, g, b))
+
+        return img
+
     def create_opening(self, track: str, date_str: str) -> ImageClip:
-        """オープニング画像生成（5秒）"""
-        img = Image.new('RGB', (self.width, self.height),
-                        color=self.hex_to_rgb(self.colors['primary']))
+        """オープニング画像生成（5秒）- AI背景 or グラデーション"""
+        # AI背景生成（キャッシュ利用）
+        ai_bg_path = None
+        if self.use_ai_backgrounds:
+            ai_bg_path = self.generate_ai_background(track, 'opening')
+
+        if ai_bg_path:
+            # AI背景を使用
+            img = self.load_and_resize_background(ai_bg_path)
+            # 暗めのオーバーレイで文字を読みやすく
+            overlay = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 100))
+            img = img.convert('RGBA')
+            img = Image.alpha_composite(img, overlay).convert('RGB')
+        else:
+            # グラデーション背景生成
+            img = self.create_gradient_background(
+                self.colors['primary'],
+                self.colors['secondary'],
+                direction='vertical'
+            )
+
         draw = ImageDraw.Draw(img)
 
         # 日本語対応フォント取得
@@ -140,11 +385,24 @@ class PredictionVideoGenerator:
 
         return ImageClip(np.array(img)).set_duration(5)
 
-    def create_prediction_slide(self, race_info: Dict, prediction: Dict) -> ImageClip:
-        """予想スライド生成（各10秒）"""
-        # グラデーション背景
-        img = Image.new('RGB', (self.width, self.height),
-                        color=self.hex_to_rgb(self.colors['white']))
+    def create_prediction_slide(self, race_info: Dict, prediction: Dict, track: str) -> ImageClip:
+        """予想スライド生成（各10秒）- AI背景 or グラデーション"""
+        # AI背景生成（キャッシュ利用）
+        ai_bg_path = None
+        if self.use_ai_backgrounds:
+            ai_bg_path = self.generate_ai_background(track, 'race')
+
+        if ai_bg_path:
+            # AI背景を使用
+            img = self.load_and_resize_background(ai_bg_path)
+            # 明るめのオーバーレイで情報を見やすく
+            overlay = Image.new('RGBA', (self.width, self.height), (255, 255, 255, 180))
+            img = img.convert('RGBA')
+            img = Image.alpha_composite(img, overlay).convert('RGB')
+        else:
+            # 淡いグラデーション背景
+            img = self.create_gradient_background('#f5f7fa', '#c3cfe2', direction='vertical')
+
         draw = ImageDraw.Draw(img)
 
         # 日本語対応フォント取得
@@ -193,10 +451,25 @@ class PredictionVideoGenerator:
 
         return ImageClip(np.array(img)).set_duration(10)
 
-    def create_ending(self) -> ImageClip:
-        """エンディング画像生成（5秒）"""
-        img = Image.new('RGB', (self.width, self.height),
-                        color=self.hex_to_rgb(self.colors['secondary']))
+    def create_ending(self, track: str = None) -> ImageClip:
+        """エンディング画像生成（5秒）- AI背景 or 単色"""
+        # AI背景生成（キャッシュ利用）
+        ai_bg_path = None
+        if self.use_ai_backgrounds and track:
+            ai_bg_path = self.generate_ai_background(track, 'ending')
+
+        if ai_bg_path:
+            # AI背景を使用
+            img = self.load_and_resize_background(ai_bg_path)
+            # 暗めのオーバーレイ
+            overlay = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 120))
+            img = img.convert('RGBA')
+            img = Image.alpha_composite(img, overlay).convert('RGB')
+        else:
+            # 単色背景
+            img = Image.new('RGB', (self.width, self.height),
+                            color=self.hex_to_rgb(self.colors['secondary']))
+
         draw = ImageDraw.Draw(img)
 
         # 日本語対応フォント取得
@@ -227,13 +500,16 @@ class PredictionVideoGenerator:
 
         return ImageClip(np.array(img)).set_duration(5)
 
-    def generate_video(self, article_data: Dict, output_path: str = None) -> str:
+    def generate_video(self, article_data: Dict, output_path: str = None,
+                       bgm_path: str = None, enable_narration: bool = True) -> str:
         """
         予想データから動画生成
 
         Args:
             article_data: daily_prediction.pyで生成された記事データ
             output_path: 出力先パス（省略時は自動生成）
+            bgm_path: BGM音声ファイルのパス（省略時はBGMなし）
+            enable_narration: ナレーション生成を有効化
 
         Returns:
             生成された動画ファイルのパス
@@ -246,34 +522,110 @@ class PredictionVideoGenerator:
         os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else '.', exist_ok=True)
 
         clips = []
+        narration_files = []  # 一時ファイルの管理用
 
         # オープニング
-        clips.append(self.create_opening(
+        opening_clip = self.create_opening(
             article_data['track'],
             article_data['date']
-        ))
+        )
+
+        # オープニングナレーション
+        if enable_narration:
+            opening_text = f"{article_data['date']} {article_data['track']}競馬の予想をお届けします"
+            narration_path = self.generate_narration(opening_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                opening_clip = opening_clip.set_audio(narration_audio)
+
+        clips.append(opening_clip)
 
         # 各レースの予想スライド
         for pred_data in article_data['predictions']:
             race_info = pred_data['race']['raceInfo']
             prediction = pred_data['prediction']
 
-            clips.append(self.create_prediction_slide(race_info, prediction))
+            slide_clip = self.create_prediction_slide(race_info, prediction, article_data['track'])
+
+            # レースナレーション
+            if enable_narration:
+                # 上位3頭の予想を取得
+                predictions = sorted(
+                    prediction['predictions'],
+                    key=lambda x: x['win_probability'],
+                    reverse=True
+                )[:3]
+
+                narration_text = (
+                    f"{race_info['raceNumber']} {race_info['raceName']}。"
+                    f"本命は{predictions[0]['number']}番{predictions[0]['name']}、"
+                    f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
+                    f"単穴{predictions[2]['number']}番{predictions[2]['name']}です。"
+                )
+
+                narration_path = self.generate_narration(narration_text)
+                if narration_path:
+                    narration_files.append(narration_path)
+                    narration_audio = AudioFileClip(narration_path)
+                    slide_clip = slide_clip.set_audio(narration_audio)
+
+            clips.append(slide_clip)
 
         # エンディング
-        clips.append(self.create_ending())
+        ending_clip = self.create_ending(article_data['track'])
+
+        if enable_narration:
+            ending_text = "詳しい予想は、keiba-ai-predictor.onrender.comをご覧ください"
+            narration_path = self.generate_narration(ending_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                ending_clip = ending_clip.set_audio(narration_audio)
+
+        clips.append(ending_clip)
 
         # 動画結合
         final_video = concatenate_videoclips(clips, method="compose")
+
+        # BGM追加
+        if bgm_path and os.path.exists(bgm_path):
+            try:
+                bgm = AudioFileClip(bgm_path)
+                # BGMをループして動画の長さに合わせる
+                video_duration = final_video.duration
+                if bgm.duration < video_duration:
+                    # BGMが短い場合はループ
+                    loops = int(video_duration / bgm.duration) + 1
+                    bgm = concatenate_videoclips([bgm] * loops)
+                bgm = bgm.subclip(0, video_duration).volumex(0.3)  # 音量を30%に
+
+                # 既存のナレーションとBGMを合成
+                if final_video.audio:
+                    final_audio = CompositeAudioClip([final_video.audio, bgm])
+                else:
+                    final_audio = bgm
+
+                final_video = final_video.set_audio(final_audio)
+                print("✅ BGMを追加しました")
+            except Exception as e:
+                print(f"⚠️  BGM追加エラー: {e}")
 
         # 動画書き出し
         final_video.write_videofile(
             output_path,
             fps=self.fps,
             codec='libx264',
-            audio=False,
+            audio_codec='aac',
             preset='medium'
         )
+
+        # 一時ファイルのクリーンアップ
+        for temp_file in narration_files:
+            try:
+                os.unlink(temp_file)
+            except Exception:
+                pass
 
         print(f"✅ 動画生成完了: {output_path}")
         return output_path
@@ -307,6 +659,26 @@ if __name__ == '__main__':
         ]
     }
 
-    generator = PredictionVideoGenerator()
+    # 環境変数で設定（環境変数で切り替え可能）
+    tts_engine = os.environ.get('TTS_ENGINE', 'gtts')  # 'gtts' or 'openai'
+    use_ai_bg = os.environ.get('USE_AI_BACKGROUNDS', 'false').lower() == 'true'
+
+    print(f"🎙️  TTS Engine: {tts_engine}")
+    print(f"🎨 AI Backgrounds: {use_ai_bg}")
+
+    generator = PredictionVideoGenerator(
+        tts_engine=tts_engine,
+        use_ai_backgrounds=use_ai_bg
+    )
+
     video_path = generator.generate_video(sample_data, "test_output.mp4")
-    print(f"動画ファイル: {video_path}")
+    print(f"\n✅ 動画ファイル: {video_path}")
+
+    # AI背景を使用した場合のキャッシュ情報
+    if use_ai_bg:
+        cache_dir = Path('cache/backgrounds')
+        if cache_dir.exists():
+            cached_files = list(cache_dir.glob('*.png'))
+            print(f"📁 キャッシュされた背景画像: {len(cached_files)}枚")
+            for f in cached_files:
+                print(f"   - {f.name}")
