@@ -288,24 +288,24 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
 
         # 1. フック（3秒）
         hook_clip = self.create_hook_slide(article_data['track'], top_n_races)
-        if self.tts_engine == 'openai' and self.openai_client:
-            hook_text = f"本日の{article_data['track']}競馬、AIが注目する{top_n_races}レースを紹介します"
-            narration_path = self.generate_narration(hook_text)
-            if narration_path:
-                narration_files.append(narration_path)
-                narration_audio = AudioFileClip(narration_path)
-                hook_clip = hook_clip.set_audio(narration_audio)
+        # ナレーション追加（gTTS or OpenAI TTS）
+        hook_text = f"本日の{article_data['track']}競馬、AIが注目する{top_n_races}レースを紹介します"
+        narration_path = self.generate_narration(hook_text)
+        if narration_path:
+            narration_files.append(narration_path)
+            narration_audio = AudioFileClip(narration_path)
+            hook_clip = hook_clip.set_audio(narration_audio)
         clips.append(hook_clip)
 
         # 2. 今日の注目（5秒）
         attention_clip = self.create_attention_slide(article_data['track'], article_data['date'])
-        if self.tts_engine == 'openai' and self.openai_client:
-            attention_text = f"今日の注目は{article_data['track']}競馬。AIが期待するレースはこちらです"
-            narration_path = self.generate_narration(attention_text)
-            if narration_path:
-                narration_files.append(narration_path)
-                narration_audio = AudioFileClip(narration_path)
-                attention_clip = attention_clip.set_audio(narration_audio)
+        # ナレーション追加（gTTS or OpenAI TTS）
+        attention_text = f"今日の注目は{article_data['track']}競馬。AIが期待するレースはこちらです"
+        narration_path = self.generate_narration(attention_text)
+        if narration_path:
+            narration_files.append(narration_path)
+            narration_audio = AudioFileClip(narration_path)
+            attention_clip = attention_clip.set_audio(narration_audio)
         clips.append(attention_clip)
 
         # 3-5. レース紹介（各15秒）
@@ -317,37 +317,37 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 race_info, prediction, article_data['track'], duration=15
             )
 
-            if self.tts_engine == 'openai' and self.openai_client:
-                predictions = sorted(
-                    prediction['predictions'],
-                    key=lambda x: x['win_probability'],
-                    reverse=True
-                )[:3]
+            # ナレーション追加（gTTS or OpenAI TTS）
+            predictions = sorted(
+                prediction['predictions'],
+                key=lambda x: x['win_probability'],
+                reverse=True
+            )[:3]
 
-                race_text = (
-                    f"{race_info['raceNumber']} {race_info['raceName']}。"
-                    f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
-                    f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
-                    f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
-                )
+            race_text = (
+                f"{race_info['raceNumber']} {race_info['raceName']}。"
+                f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
+                f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
+                f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
+            )
 
-                narration_path = self.generate_narration(race_text)
-                if narration_path:
-                    narration_files.append(narration_path)
-                    narration_audio = AudioFileClip(narration_path)
-                    race_clip = race_clip.set_audio(narration_audio)
+            narration_path = self.generate_narration(race_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                race_clip = race_clip.set_audio(narration_audio)
 
             clips.append(race_clip)
 
         # 6. CTA（10秒）
         cta_clip = self.create_cta_slide(article_data['track'])
-        if self.tts_engine == 'openai' and self.openai_client:
-            cta_text = "AI予想の詳細は概要欄から確認できます。チャンネル登録もよろしくお願いします"
-            narration_path = self.generate_narration(cta_text)
-            if narration_path:
-                narration_files.append(narration_path)
-                narration_audio = AudioFileClip(narration_path)
-                cta_clip = cta_clip.set_audio(narration_audio)
+        # ナレーション追加（gTTS or OpenAI TTS）
+        cta_text = "AI予想の詳細は概要欄から確認できます。チャンネル登録もよろしくお願いします"
+        narration_path = self.generate_narration(cta_text)
+        if narration_path:
+            narration_files.append(narration_path)
+            narration_audio = AudioFileClip(narration_path)
+            cta_clip = cta_clip.set_audio(narration_audio)
         clips.append(cta_clip)
 
         # 動画結合
@@ -431,47 +431,47 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
 
             # 1. フック（3秒）- Shorts用
             hook_clip = self._create_shorts_hook(article_data['track'], race_info['raceNumber'])
-            if self.tts_engine == 'openai' and self.openai_client:
-                hook_text = f"{article_data['track']}{race_info['raceNumber']}の本命は"
-                narration_path = self.generate_narration(hook_text)
-                if narration_path:
-                    narration_files.append(narration_path)
-                    narration_audio = AudioFileClip(narration_path)
-                    hook_clip = hook_clip.set_audio(narration_audio)
+            # ナレーション追加（gTTS or OpenAI TTS）
+            hook_text = f"{article_data['track']}{race_info['raceNumber']}の本命は"
+            narration_path = self.generate_narration(hook_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                hook_clip = hook_clip.set_audio(narration_audio)
             clips.append(hook_clip)
 
             # 2. レース情報（20秒）- Shorts用
             race_clip = self._create_shorts_race_detail(race_info, prediction, article_data['track'])
-            if self.tts_engine == 'openai' and self.openai_client:
-                predictions = sorted(
-                    prediction['predictions'],
-                    key=lambda x: x['win_probability'],
-                    reverse=True
-                )[:3]
+            # ナレーション追加（gTTS or OpenAI TTS）
+            predictions = sorted(
+                prediction['predictions'],
+                key=lambda x: x['win_probability'],
+                reverse=True
+            )[:3]
 
-                race_text = (
-                    f"{predictions[0]['number']}番{predictions[0]['name']}です。"
-                    f"対抗は{predictions[1]['number']}番{predictions[1]['name']}、"
-                    f"単穴は{predictions[2]['number']}番{predictions[2]['name']}。"
-                    f"詳しい予想は概要欄のリンクからご覧ください"
-                )
+            race_text = (
+                f"{predictions[0]['number']}番{predictions[0]['name']}です。"
+                f"対抗は{predictions[1]['number']}番{predictions[1]['name']}、"
+                f"単穴は{predictions[2]['number']}番{predictions[2]['name']}。"
+                f"詳しい予想は概要欄のリンクからご覧ください"
+            )
 
-                narration_path = self.generate_narration(race_text)
-                if narration_path:
-                    narration_files.append(narration_path)
-                    narration_audio = AudioFileClip(narration_path)
-                    race_clip = race_clip.set_audio(narration_audio)
+            narration_path = self.generate_narration(race_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                race_clip = race_clip.set_audio(narration_audio)
             clips.append(race_clip)
 
             # 3. CTA（7秒）- Shorts用
             cta_clip = self._create_shorts_cta(article_data['track'])
-            if self.tts_engine == 'openai' and self.openai_client:
-                cta_text = "チャンネル登録して、毎日のAI予想をチェック"
-                narration_path = self.generate_narration(cta_text)
-                if narration_path:
-                    narration_files.append(narration_path)
-                    narration_audio = AudioFileClip(narration_path)
-                    cta_clip = cta_clip.set_audio(narration_audio)
+            # ナレーション追加（gTTS or OpenAI TTS）
+            cta_text = "チャンネル登録して、毎日のAI予想をチェック"
+            narration_path = self.generate_narration(cta_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                cta_clip = cta_clip.set_audio(narration_audio)
             clips.append(cta_clip)
 
             # 動画結合

@@ -64,8 +64,8 @@ jobs:
       - name: Generate 3-tier videos
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TTS_ENGINE: ${{ github.event.inputs.tts_engine || 'gtts' }}
-          USE_AI_BACKGROUNDS: ${{ github.event.inputs.use_ai_backgrounds || 'false' }}
+          TTS_ENGINE: ${{ github.event.inputs.tts_engine || 'openai' }}
+          USE_AI_BACKGROUNDS: ${{ github.event.inputs.use_ai_backgrounds || 'true' }}
         run: |
           python src/automation/generate_videos.py
 
