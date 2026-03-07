@@ -308,27 +308,20 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             attention_clip = attention_clip.set_audio(narration_audio)
         clips.append(attention_clip)
 
-        # 3-5. レース紹介（各15秒）
+        # 3-5. レース紹介（音声の長さに自動調整）
         for i, pred_data in enumerate(article_data['predictions'][:top_n_races]):
             race_info = pred_data['race']['raceInfo']
             prediction = pred_data['prediction']
 
-            race_clip = self.create_race_slide_optimized(
-                race_info, prediction, article_data['track'], duration=15
-            )
-
-            # ナレーション追加（gTTS or OpenAI TTS）
+            # ナレーション生成
             predictions = sorted(
                 prediction['predictions'],
                 key=lambda x: x['win_probability'],
                 reverse=True
             )[:3]
 
-            # "1R" → "1レース"に変換
-            race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
-
             race_text = (
-                f"{race_num_spoken} {race_info['raceName']}。"
+                f"{race_info['raceNumber']} {race_info['raceName']}。"
                 f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
                 f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
                 f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
@@ -338,7 +331,18 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             if narration_path:
                 narration_files.append(narration_path)
                 narration_audio = AudioFileClip(narration_path)
+
+                # 音声の長さ + 0.5秒バッファでスライド時間を自動調整
+                duration = narration_audio.duration + 0.5
+                race_clip = self.create_race_slide_optimized(
+                    race_info, prediction, article_data['track'], duration=duration
+                )
                 race_clip = race_clip.set_audio(narration_audio)
+            else:
+                # ナレーション失敗時のフォールバック
+                race_clip = self.create_race_slide_optimized(
+                    race_info, prediction, article_data['track'], duration=10
+                )
 
             clips.append(race_clip)
 
@@ -432,50 +436,55 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             race_info = pred_data['race']['raceInfo']
             prediction = pred_data['prediction']
 
-            # 1. フック（3秒）- Shorts用
-            hook_clip = self._create_shorts_hook(article_data['track'], race_info['raceNumber'])
-            # ナレーション追加（gTTS or OpenAI TTS）
-            # "1R" → "1レース"に変換
-            race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
-            hook_text = f"{article_data['track']}{race_num_spoken}の本命は"
-            narration_path = self.generate_narration(hook_text)
-            if narration_path:
-                narration_files.append(narration_path)
-                narration_audio = AudioFileClip(narration_path)
-                hook_clip = hook_clip.set_audio(narration_audio)
-            clips.append(hook_clip)
-
-            # 2. レース情報（20秒）- Shorts用
-            race_clip = self._create_shorts_race_detail(race_info, prediction, article_data['track'])
-            # ナレーション追加（gTTS or OpenAI TTS）
+            # 予想トップ3を取得
             predictions = sorted(
                 prediction['predictions'],
                 key=lambda x: x['win_probability'],
                 reverse=True
             )[:3]
 
+            # 1. フック（インパクトある導入）- Shorts用
+            hook_clip = self._create_shorts_hook(article_data['track'], race_info['raceNumber'])
+            hook_text = (
+                f"今日の{article_data['track']}競馬、{race_info['raceNumber']}、"
+                f"{race_info['raceName']}。AIが選んだ本命は！"
+            )
+            narration_path = self.generate_narration(hook_text)
+            if narration_path:
+                narration_files.append(narration_path)
+                narration_audio = AudioFileClip(narration_path)
+                # 音声に合わせてスライド時間を自動調整
+                hook_clip = hook_clip.set_duration(narration_audio.duration + 0.3)
+                hook_clip = hook_clip.set_audio(narration_audio)
+            clips.append(hook_clip)
+
+            # 2. レース情報（具体的な予想）- Shorts用
+            race_clip = self._create_shorts_race_detail(race_info, prediction, article_data['track'])
             race_text = (
-                f"{predictions[0]['number']}番{predictions[0]['name']}です。"
-                f"対抗は{predictions[1]['number']}番{predictions[1]['name']}、"
-                f"単穴は{predictions[2]['number']}番{predictions[2]['name']}。"
-                f"詳しい予想は概要欄のリンクからご覧ください"
+                f"{predictions[0]['number']}番、{predictions[0]['name']}！"
+                f"勝率は{predictions[0]['win_probability']*100:.0f}パーセント。"
+                f"対抗に{predictions[1]['number']}番、{predictions[1]['name']}。"
+                f"穴馬は{predictions[2]['number']}番、{predictions[2]['name']}を狙います。"
             )
 
             narration_path = self.generate_narration(race_text)
             if narration_path:
                 narration_files.append(narration_path)
                 narration_audio = AudioFileClip(narration_path)
+                # 音声に合わせてスライド時間を自動調整
+                race_clip = race_clip.set_duration(narration_audio.duration + 0.5)
                 race_clip = race_clip.set_audio(narration_audio)
             clips.append(race_clip)
 
-            # 3. CTA（7秒）- Shorts用
+            # 3. CTA（自然な締めくくり）- Shorts用
             cta_clip = self._create_shorts_cta(article_data['track'])
-            # ナレーション追加（gTTS or OpenAI TTS）
-            cta_text = "チャンネル登録して、毎日のAI予想をチェック"
+            cta_text = "詳しい買い目は概要欄をチェック。チャンネル登録で毎日の予想をお届けします！"
             narration_path = self.generate_narration(cta_text)
             if narration_path:
                 narration_files.append(narration_path)
                 narration_audio = AudioFileClip(narration_path)
+                # 音声に合わせてスライド時間を自動調整
+                cta_clip = cta_clip.set_duration(narration_audio.duration + 0.3)
                 cta_clip = cta_clip.set_audio(narration_audio)
             clips.append(cta_clip)
 
@@ -775,10 +784,8 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             point_text = "本日の特に注目すべきレースは、"
             for i, pred_data in enumerate(article_data['predictions'][:3]):
                 race_num = pred_data['race']['raceInfo']['raceNumber']
-                # "1R" → "1レース"に変換
-                race_num_spoken = race_num.replace('R', 'レース')
-                point_text += f"{race_num_spoken}、"
-            point_text += "です。それでは全レースの予想を見ていきましょう"
+                point_text += f"{race_num}、"
+            point_text += "の3つです。それでは、各レースの予想を見ていきましょう。"
 
             narration_path = self.generate_narration(point_text)
             if narration_path:
@@ -792,14 +799,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             race_info = pred_data['race']['raceInfo']
             prediction = pred_data['prediction']
 
-            # メインレース（11R, 12R）は15秒、それ以外は10秒に短縮
-            is_main = race_info['raceNumber'] in ['11R', '12R']
-            duration = 15 if is_main else 10
-
-            race_clip = self.create_race_slide_optimized(
-                race_info, prediction, article_data['track'], duration=duration
-            )
-
+            # ナレーション生成（音声の長さに合わせてスライド時間を自動調整）
             if self.tts_engine == 'openai' and self.openai_client:
                 predictions = sorted(
                     prediction['predictions'],
@@ -807,21 +807,36 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                     reverse=True
                 )[:3]
 
-                # "1R" → "1レース"に変換
-                race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
-
                 race_text = (
-                    f"{race_num_spoken} {race_info['raceName']}。"
-                    f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
-                    f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
-                    f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
+                    f"{race_info['raceNumber']} {race_info['raceName']}。"
+                    f"本命は{predictions[0]['number']}番、{predictions[0]['name']}。"
+                    f"対抗は{predictions[1]['number']}番、{predictions[1]['name']}。"
+                    f"単穴は{predictions[2]['number']}番、{predictions[2]['name']}です。"
                 )
 
                 narration_path = self.generate_narration(race_text)
                 if narration_path:
                     narration_files.append(narration_path)
                     narration_audio = AudioFileClip(narration_path)
+
+                    # 音声の長さ + 0.5秒のバッファでスライド時間を自動調整
+                    audio_duration = narration_audio.duration
+                    duration = audio_duration + 0.5
+
+                    race_clip = self.create_race_slide_optimized(
+                        race_info, prediction, article_data['track'], duration=duration
+                    )
                     race_clip = race_clip.set_audio(narration_audio)
+                else:
+                    # ナレーション生成失敗時のフォールバック
+                    race_clip = self.create_race_slide_optimized(
+                        race_info, prediction, article_data['track'], duration=8
+                    )
+            else:
+                # TTSなしの場合
+                race_clip = self.create_race_slide_optimized(
+                    race_info, prediction, article_data['track'], duration=8
+                )
 
             clips.append(race_clip)
 

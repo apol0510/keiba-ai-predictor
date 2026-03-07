@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from gtts import gTTS
 import tempfile
+import re
 
 # OpenAI TTS (optional)
 try:
@@ -23,6 +24,61 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+
+
+def normalize_tts_text(text: str) -> str:
+    """
+    TTS音声生成前のテキスト正規化（共通処理）
+
+    目的：日本人が自然に聞ける競馬予想動画を実現するため、
+    すべての読み上げテキストを統一的に正規化する。
+
+    Args:
+        text: 元のナレーションテキスト
+
+    Returns:
+        正規化されたテキスト
+    """
+    if not text:
+        return text
+
+    text = str(text)
+
+    # ===== レース番号の正規化 =====
+    # "1R", "2R" → "1レース", "2レース"
+    text = re.sub(r'(\d{1,2})R\b', r'\1レース', text)
+
+    # ===== 競馬記号の読み =====
+    text = text.replace('◎', '本命、')
+    text = text.replace('○', '対抗、')
+    text = text.replace('▲', '単穴、')
+    text = text.replace('△', '連下、')
+    text = text.replace('×', '抑え、')
+
+    # ===== 英字・略語の読み =====
+    text = text.replace('AI', 'エーアイ')
+    text = text.replace('JRA', 'ジェイアールエー')
+    text = text.replace('NAR', 'エヌエーアール')
+    text = text.replace('BGM', 'ビージーエム')
+    text = text.replace('TTS', 'ティーティーエス')
+
+    # ===== 読みにくい記号・句読点 =====
+    text = text.replace('・', '、')
+    text = text.replace('/', 'スラッシュ')
+
+    # ===== 数字の読みやすさ改善 =====
+    # "3-5-7" → "3、5、7"（オッズ表記など）
+    text = re.sub(r'(\d+)-(\d+)-(\d+)', r'\1、\2、\3', text)
+
+    # ===== 空白・改行の整理 =====
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+
+    # ===== 句読点の調整（読みやすさ向上） =====
+    # 連続する句読点を整理
+    text = re.sub(r'[、。]+', lambda m: m.group(0)[0], text)
+
+    return text
 
 
 class PredictionVideoGenerator:
@@ -144,6 +200,8 @@ class PredictionVideoGenerator:
         """
         ナレーション音声を生成（OpenAI TTS or gTTS）
 
+        すべてのナレーションは normalize_tts_text() で正規化されます。
+
         Args:
             text: ナレーション内容
 
@@ -151,10 +209,13 @@ class PredictionVideoGenerator:
             生成された音声ファイルのパス（一時ファイル）
         """
         try:
+            # ★★★ 必ずすべてのテキストを正規化 ★★★
+            normalized_text = normalize_tts_text(text)
+
             if self.tts_engine == 'openai' and self.openai_client:
-                return self._generate_openai_tts(text)
+                return self._generate_openai_tts(normalized_text)
             else:
-                return self._generate_gtts(text)
+                return self._generate_gtts(normalized_text)
         except Exception as e:
             print(f"⚠️  ナレーション生成エラー: {e}")
             return None
