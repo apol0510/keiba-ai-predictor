@@ -6,64 +6,77 @@ API から本日の予想データを取得
 import httpx
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 
-def fetch_track_predictions(api_base_url: str, track: str) -> Optional[Dict]:
+def fetch_track_predictions(api_base_url: str, track: str, fallback_days: int = 7) -> Optional[Dict]:
     """
-    指定競馬場の予想データを取得
+    指定競馬場の予想データを取得（フォールバック機能付き）
 
     Args:
         api_base_url: データベースURL (keiba-data-shared)
         track: 競馬場名 (例: kawasaki, nankan, ooi)
+        fallback_days: 本日のデータがない場合、過去何日分まで遡るか
 
     Returns:
         予想データ、または取得失敗時はNone
     """
-    try:
-        # 本日の日付
-        today = datetime.now()
-        year = today.strftime('%Y')
-        month = today.strftime('%m')
-        date_str = today.strftime('%Y-%m-%d')
+    with httpx.Client(timeout=30.0) as client:
+        # 本日から過去N日分を試行
+        for days_back in range(fallback_days + 1):
+            try:
+                target_date = datetime.now() - timedelta(days=days_back)
+                year = target_date.strftime('%Y')
+                month = target_date.strftime('%m')
+                date_str = target_date.strftime('%Y-%m-%d')
 
-        # keiba-data-shared URL構築
-        # Format: https://keiba-data-shared.netlify.app/{track}/predictions/{year}/{month}/{date}.json
-        url = f"{api_base_url}/{track}/predictions/{year}/{month}/{date_str}.json"
+                # keiba-data-shared URL構築
+                # Format: https://keiba-data-shared.netlify.app/{track}/predictions/{year}/{month}/{date}.json
+                url = f"{api_base_url}/{track}/predictions/{year}/{month}/{date_str}.json"
 
-        print(f"📡 予想データ取得中: {url}")
+                if days_back == 0:
+                    print(f"📡 予想データ取得中: {url}")
+                else:
+                    print(f"📡 フォールバック: {days_back}日前のデータを試行 ({date_str})")
 
-        # データ取得
-        with httpx.Client(timeout=30.0) as client:
-            response = client.get(url)
+                # データ取得
+                response = client.get(url)
 
-            # 404 と他のエラーを区別
-            if response.status_code == 404:
-                print(f"⚠️  予想データが見つかりません（404）")
-                print(f"   理由: URLパスが存在しないか、{date_str}のデータが未作成")
-                print(f"   確認URL: {url}")
-                return None
+                # 404 の場合は次の日付を試行
+                if response.status_code == 404:
+                    if days_back == 0:
+                        print(f"⚠️  本日のデータが見つかりません")
+                        print(f"   過去{fallback_days}日分のデータを検索します...")
+                    continue
 
-            response.raise_for_status()
+                response.raise_for_status()
 
-            data = response.json()
+                data = response.json()
 
-            if not data or 'races' not in data:
-                print(f"⚠️  レースデータが含まれていません")
-                return None
+                if not data or 'races' not in data:
+                    print(f"⚠️  レースデータが含まれていません")
+                    continue
 
-            print(f"✅ 予想データ取得成功: {track}")
-            print(f"   レース数: {len(data['races'])}")
+                if days_back > 0:
+                    print(f"✅ {days_back}日前の予想データを使用: {track} ({date_str})")
+                else:
+                    print(f"✅ 予想データ取得成功: {track}")
+                print(f"   レース数: {len(data['races'])}")
 
-            return data
+                return data
 
-    except httpx.HTTPStatusError as e:
-        print(f"❌ HTTPエラー ({e.response.status_code}): {e}")
-        print(f"   URL: {url}")
-        return None
-    except Exception as e:
-        print(f"❌ 予想データ取得失敗: {e}")
+            except httpx.HTTPStatusError as e:
+                if days_back == fallback_days:
+                    print(f"❌ HTTPエラー ({e.response.status_code}): {e}")
+                continue
+            except Exception as e:
+                if days_back == fallback_days:
+                    print(f"❌ 予想データ取得失敗: {e}")
+                continue
+
+        # すべての試行が失敗
+        print(f"❌ 過去{fallback_days}日間のデータが見つかりませんでした")
         return None
 
 
