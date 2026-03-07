@@ -62,6 +62,42 @@ def sanitize_display_text(text: str) -> str:
     return text
 
 
+def create_race_narration(race_num: str, race_name: str, horses: list) -> str:
+    """
+    TTS専用のレースナレーションを生成
+
+    馬名の前後に必ず区切りを入れることで、TTSの発音品質を向上させる
+
+    Args:
+        race_num: レース番号 (例: "1R")
+        race_name: レース名
+        horses: [{' number': int, 'name': str, 'role': '本命'|'対抗'|'単穴'}]
+
+    Returns:
+        TTS最適化されたナレーションテキスト
+    """
+    # レース番号を正規化
+    race_num_normalized = re.sub(r'(\d{1,2})R', r'\1レース', race_num)
+
+    # ナレーション構築
+    narration_parts = [f"{race_num_normalized}、{race_name}です。"]
+
+    for horse in horses:
+        role = horse.get('role', '')
+        number = horse.get('number', '')
+        name = horse.get('name', '')
+
+        # 馬名の前後に区切りを入れる
+        if role == '本命':
+            narration_parts.append(f"本命は、{number}番、{name}です。")
+        elif role == '対抗':
+            narration_parts.append(f"対抗は、{number}番、{name}。")
+        elif role == '単穴':
+            narration_parts.append(f"単穴は、{number}番、{name}です。")
+
+    return "\n".join(narration_parts)
+
+
 def normalize_tts_text(text: str) -> str:
     """
     TTS音声生成前のテキスト正規化（共通処理）
@@ -101,11 +137,18 @@ def normalize_tts_text(text: str) -> str:
     # ===== 競馬専門用語の読み方 =====
     text = text.replace('買い目', 'かいめ')
     text = text.replace('概要欄', 'がいようらん')
+    text = text.replace('馬単', 'ばたん')
+    text = text.replace('馬連', 'うまれん')
+    text = text.replace('三連複', 'さんれんぷく')
+    text = text.replace('三連単', 'さんれんたん')
+    text = text.replace('ワイド', 'わいど')
 
     # ===== 読みにくい記号・句読点 =====
     text = text.replace('・', '、')
-    text = text.replace('！', '')  # 感嘆符は除去（イントネーションの問題を防ぐ）
+    text = text.replace('！', '')  # 感嘆符は除去
     text = text.replace('!', '')
+    text = text.replace('★', '')
+    text = text.replace('☆', '')
     text = text.replace('/', 'スラッシュ')
 
     # ===== 数字の読みやすさ改善 =====

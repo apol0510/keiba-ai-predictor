@@ -12,6 +12,7 @@ import numpy as np
 from datetime import datetime
 from typing import List, Dict, Optional
 import os
+import re
 from pathlib import Path
 from video_generator import PredictionVideoGenerator
 from youtube_metadata_generator import YouTubeMetadataGenerator
@@ -324,11 +325,13 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 reverse=True
             )[:3]
 
+            # TTS最適化: 馬名の前後に区切りを入れる
+            race_num_clean = re.sub(r'(\d{1,2})R', r'\1レース', race_info['raceNumber'])
             race_text = (
-                f"{race_info['raceNumber']} {race_info['raceName']}。"
-                f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
-                f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
-                f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
+                f"{race_num_clean}、{race_info['raceName']}です。\n"
+                f"本命は、{predictions[0]['number']}番、{predictions[0]['name']}です。\n"
+                f"対抗は、{predictions[1]['number']}番、{predictions[1]['name']}。\n"
+                f"単穴は、{predictions[2]['number']}番、{predictions[2]['name']}です。"
             )
 
             narration_path = self.generate_narration(race_text)
@@ -361,11 +364,29 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             cta_clip = cta_clip.set_audio(narration_audio)
         clips.append(cta_clip)
 
+        # クリップ情報をデバッグログに出力
+        print("\n" + "="*70)
+        print("📊 YouTube版クリップ詳細情報")
+        print("="*70)
+        clip_names = ["フック", "注目"] + [f"レース{i+1}" for i in range(len(clips)-3)] + ["CTA"]
+        for i, (name, clip) in enumerate(zip(clip_names, clips)):
+            video_dur = clip.duration
+            audio_dur = clip.audio.duration if clip.audio else 0
+
+            print(f"{name}:")
+            print(f"  video_duration: {video_dur:.2f}s")
+            print(f"  audio_duration: {audio_dur:.2f}s")
+
+            if audio_dur > video_dur + 0.1:
+                print(f"  ⚠️  WARNING: audio > video ({audio_dur - video_dur:.2f}s over)")
+        print("="*70 + "\n")
+
         # 動画結合
         final_video = concatenate_videoclips(clips, method="compose")
 
-        # BGM追加
-        if bgm_path and os.path.exists(bgm_path):
+        # BGM追加 (環境変数でスキップ可能)
+        skip_bgm = os.environ.get('SKIP_BGM', 'false').lower() == 'true'
+        if bgm_path and os.path.exists(bgm_path) and not skip_bgm:
             try:
                 bgm = AudioFileClip(bgm_path)
                 video_duration = final_video.duration
