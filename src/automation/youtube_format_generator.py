@@ -156,7 +156,11 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
         header_rect = [(0, 0), (self.width, 250)]
         draw.rectangle(header_rect, fill=self.hex_to_rgb(self.colors['primary']))
 
-        race_title = f"{race_info['raceNumber']} {race_info['raceName']}"
+        # サニタイズして表示（文字化け防止）
+        from video_generator import sanitize_display_text
+        race_number = sanitize_display_text(race_info['raceNumber'])
+        race_name = sanitize_display_text(race_info['raceName'])
+        race_title = f"{race_number} {race_name}"
         draw.text((80, 50), race_title, fill=self.hex_to_rgb(self.colors['white']), font=race_font)
 
         race_details = f"{race_info['distance']}m {race_info['surface']}"

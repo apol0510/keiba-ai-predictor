@@ -17,6 +17,7 @@ from pathlib import Path
 from gtts import gTTS
 import tempfile
 import re
+import unicodedata
 
 # OpenAI TTS (optional)
 try:
@@ -24,6 +25,41 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+
+
+def sanitize_display_text(text: str) -> str:
+    """
+    画面表示用テキストのサニタイズ（文字化け防止）
+
+    目的：フォント非対応文字や制御文字を除去し、
+    すべてのデバイスで正しく表示されるテキストにする。
+
+    Args:
+        text: 元の表示テキスト
+
+    Returns:
+        サニタイズされたテキスト
+    """
+    if not text:
+        return ""
+
+    text = str(text)
+
+    # Unicode正規化（全角・半角を統一）
+    text = unicodedata.normalize("NFKC", text)
+
+    # 文字化けの原因となる特殊文字を除去
+    text = text.replace("\u25a1", " ")  # □
+    text = text.replace("\u2715", " ")  # ✕
+    text = text.replace("\u00d7", "×")  # ×（表示用）
+
+    # 不可視の制御文字を除去
+    text = re.sub(r"[\u200b-\u200f\u202a-\u202e]", "", text)
+
+    # 空白の整理
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
 
 
 def normalize_tts_text(text: str) -> str:
@@ -211,6 +247,10 @@ class PredictionVideoGenerator:
         try:
             # ★★★ 必ずすべてのテキストを正規化 ★★★
             normalized_text = normalize_tts_text(text)
+
+            # デバッグ: TTS入力を確認
+            print(f"[TTS INPUT] Original: {repr(text)}")
+            print(f"[TTS INPUT] Normalized: {repr(normalized_text)}")
 
             if self.tts_engine == 'openai' and self.openai_client:
                 return self._generate_openai_tts(normalized_text)
