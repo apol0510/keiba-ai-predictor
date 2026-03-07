@@ -324,8 +324,11 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 reverse=True
             )[:3]
 
+            # "1R" → "1レース"に変換
+            race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
+
             race_text = (
-                f"{race_info['raceNumber']} {race_info['raceName']}。"
+                f"{race_num_spoken} {race_info['raceName']}。"
                 f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
                 f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
                 f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"
@@ -432,7 +435,9 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             # 1. フック（3秒）- Shorts用
             hook_clip = self._create_shorts_hook(article_data['track'], race_info['raceNumber'])
             # ナレーション追加（gTTS or OpenAI TTS）
-            hook_text = f"{article_data['track']}{race_info['raceNumber']}の本命は"
+            # "1R" → "1レース"に変換
+            race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
+            hook_text = f"{article_data['track']}{race_num_spoken}の本命は"
             narration_path = self.generate_narration(hook_text)
             if narration_path:
                 narration_files.append(narration_path)
@@ -770,8 +775,10 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             point_text = "本日の特に注目すべきレースは、"
             for i, pred_data in enumerate(article_data['predictions'][:3]):
                 race_num = pred_data['race']['raceInfo']['raceNumber']
-                point_text += f"{race_num}、"
-            point_text += "の3レースです。それでは全レースの予想を見ていきましょう"
+                # "1R" → "1レース"に変換
+                race_num_spoken = race_num.replace('R', 'レース')
+                point_text += f"{race_num_spoken}、"
+            point_text += "です。それでは全レースの予想を見ていきましょう"
 
             narration_path = self.generate_narration(point_text)
             if narration_path:
@@ -780,14 +787,14 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 point_clip = point_clip.set_audio(narration_audio)
         clips.append(point_clip)
 
-        # 3. 各レース（20-25秒）
+        # 3. 各レース（10-15秒に短縮）
         for i, pred_data in enumerate(article_data['predictions']):
             race_info = pred_data['race']['raceInfo']
             prediction = pred_data['prediction']
 
-            # メインレース（11R, 12R）は25秒、それ以外は20秒
+            # メインレース（11R, 12R）は15秒、それ以外は10秒に短縮
             is_main = race_info['raceNumber'] in ['11R', '12R']
-            duration = 25 if is_main else 20
+            duration = 15 if is_main else 10
 
             race_clip = self.create_race_slide_optimized(
                 race_info, prediction, article_data['track'], duration=duration
@@ -800,8 +807,11 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                     reverse=True
                 )[:3]
 
+                # "1R" → "1レース"に変換
+                race_num_spoken = race_info['raceNumber'].replace('R', 'レース')
+
                 race_text = (
-                    f"{race_info['raceNumber']} {race_info['raceName']}。"
+                    f"{race_num_spoken} {race_info['raceName']}。"
                     f"本命は{predictions[0]['number']}番{predictions[0]['name']}。"
                     f"対抗{predictions[1]['number']}番{predictions[1]['name']}、"
                     f"単穴{predictions[2]['number']}番{predictions[2]['name']}です"

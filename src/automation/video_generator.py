@@ -171,10 +171,10 @@ class PredictionVideoGenerator:
         """
         try:
             response = self.openai_client.audio.speech.create(
-                model="tts-1",  # tts-1 or tts-1-hd
-                voice="alloy",   # alloy, echo, fable, onyx, nova, shimmer
+                model="tts-1-hd",  # 高品質モデル
+                voice="nova",      # nova: 日本語に最適な女性の声
                 input=text,
-                speed=1.0
+                speed=1.1          # やや速めで間を短縮
             )
 
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
