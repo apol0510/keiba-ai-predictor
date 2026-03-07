@@ -98,8 +98,14 @@ def normalize_tts_text(text: str) -> str:
     text = text.replace('BGM', 'ビージーエム')
     text = text.replace('TTS', 'ティーティーエス')
 
+    # ===== 競馬専門用語の読み方 =====
+    text = text.replace('買い目', 'かいめ')
+    text = text.replace('概要欄', 'がいようらん')
+
     # ===== 読みにくい記号・句読点 =====
     text = text.replace('・', '、')
+    text = text.replace('！', '')  # 感嘆符は除去（イントネーションの問題を防ぐ）
+    text = text.replace('!', '')
     text = text.replace('/', 'スラッシュ')
 
     # ===== 数字の読みやすさ改善 =====

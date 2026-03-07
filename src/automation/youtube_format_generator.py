@@ -250,7 +250,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
         )
 
         # チャンネル登録誘導
-        sub_text = "👍 高評価 & チャンネル登録"
+        sub_text = "▶ 高評価 & チャンネル登録"
         sub_bbox = draw.textbbox((0, 0), sub_text, font=subtitle_font)
         sub_width = sub_bbox[2] - sub_bbox[0]
         draw.text(
@@ -371,7 +371,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 video_duration = final_video.duration
                 if bgm.duration < video_duration:
                     loops = int(video_duration / bgm.duration) + 1
-                    bgm = concatenate_videoclips([bgm] * loops)
+                    bgm = concatenate_audioclips([bgm] * loops)
                 bgm = bgm.subclip(0, video_duration).volumex(0.25)  # BGM音量25%
 
                 if final_video.audio:
@@ -502,7 +502,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                     video_duration = final_video.duration
                     if bgm.duration < video_duration:
                         loops = int(video_duration / bgm.duration) + 1
-                        bgm = concatenate_videoclips([bgm] * loops)
+                        bgm = concatenate_audioclips([bgm] * loops)
                     bgm = bgm.subclip(0, video_duration).volumex(0.2)  # BGM音量20%
 
                     if final_video.audio:
@@ -680,7 +680,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
         subtitle_font = self.find_japanese_font(70, weight='bold')
 
         # CTA
-        cta_text = "📺 チャンネル登録"
+        cta_text = "■ チャンネル登録"
         cta_bbox = draw.textbbox((0, 0), cta_text, font=title_font)
         cta_width = cta_bbox[2] - cta_bbox[0]
         draw.text(
@@ -782,8 +782,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 opening_clip = opening_clip.set_audio(narration_audio)
         clips.append(opening_clip)
 
-        # 2. 本日のポイント（30秒）
-        point_clip = self._create_today_point(article_data['track'], article_data['predictions'][:3])
+        # 2. 本日のポイント（音声長に自動調整）
         if self.tts_engine == 'openai' and self.openai_client:
             point_text = "本日の特に注目すべきレースは、"
             for i, pred_data in enumerate(article_data['predictions'][:3]):
@@ -795,7 +794,17 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             if narration_path:
                 narration_files.append(narration_path)
                 narration_audio = AudioFileClip(narration_path)
+                # 音声の長さ + 0.5秒バッファでスライド時間を自動調整
+                duration = narration_audio.duration + 0.5
+                point_clip = self._create_today_point(article_data['track'], article_data['predictions'][:3])
+                point_clip = point_clip.set_duration(duration)
                 point_clip = point_clip.set_audio(narration_audio)
+            else:
+                # ナレーション生成失敗時のフォールバック
+                point_clip = self._create_today_point(article_data['track'], article_data['predictions'][:3])
+        else:
+            # TTSなしの場合は30秒固定
+            point_clip = self._create_today_point(article_data['track'], article_data['predictions'][:3])
         clips.append(point_clip)
 
         # 3. 各レース（10-15秒に短縮）
@@ -869,7 +878,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
                 video_duration = final_video.duration
                 if bgm.duration < video_duration:
                     loops = int(video_duration / bgm.duration) + 1
-                    bgm = concatenate_videoclips([bgm] * loops)
+                    bgm = concatenate_audioclips([bgm] * loops)
                 bgm = bgm.subclip(0, video_duration).volumex(0.20)  # BGM音量20%
 
                 if final_video.audio:
@@ -998,7 +1007,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
             race_num = pred_data['race']['raceInfo']['raceNumber']
             race_name = pred_data['race']['raceInfo']['raceName']
 
-            race_text = f"⭐ {race_num} {race_name}"
+            race_text = f"▶ {race_num} {race_name}"
             draw.text((200, y_pos), race_text, fill=self.hex_to_rgb(self.colors['white']), font=race_font)
             y_pos += 120
 
@@ -1048,7 +1057,7 @@ class YouTubeFormatGenerator(PredictionVideoGenerator):
         )
 
         # CTA
-        cta_text = "👍 高評価 & チャンネル登録"
+        cta_text = "▶ 高評価 & チャンネル登録"
         cta_bbox = draw.textbbox((0, 0), cta_text, font=subtitle_font)
         cta_width = cta_bbox[2] - cta_bbox[0]
         draw.text(
