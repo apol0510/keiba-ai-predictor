@@ -68,6 +68,8 @@ keiba-data-sharedに蓄積された過去データから学習し、レース結
 #### Phase 5: コンテンツ自動化 🚧
 - [x] 毎日の予想記事自動生成
 - [x] 予想動画自動生成（MoviePy）
+- [x] VOICEVOX TTS統合（高品質な日本語音声）
+- [x] BGM音声処理修正（重複解消）
 - [x] YouTube自動投稿（OAuth設定）
 - [x] 二重投稿防止機能
 - [x] 部分成功対応
@@ -387,12 +389,29 @@ curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
     ↓
 ② 記事コンテンツ生成（Markdown）※CMS公開は別実装
     ↓
-③ 予想動画生成（MoviePy）
+③ 予想動画生成（MoviePy + VOICEVOX）
     ↓
 ④ YouTube自動投稿（OAuth 2.0, private推奨）
     ↓
 ⑤ X投稿（RSS連携 via dlvr.it）※CMS公開後
 ```
+
+### 動画生成の技術スタック
+
+- **TTS**: VOICEVOX (高品質な日本語音声合成)
+- **動画処理**: MoviePy (Python動画編集ライブラリ)
+- **BGM処理**: concatenate_audioclips (音声重複なし)
+- **テロップ**: PIL/ImageFont (日本語フォント対応)
+
+### 安定化状況 ✅
+
+**2026-03-08 修正完了:**
+- ✅ BGM音声重複問題を解決 (`concatenate_audioclips` 使用)
+- ✅ VOICEVOX統合完了 (TTS_ENGINE環境変数)
+- ✅ 無音BGMテスト環境構築
+- ✅ 安定状態のドキュメント化 (STABLE_STATE.md)
+
+**詳細:** [STABLE_STATE.md](STABLE_STATE.md)
 
 ### 本番運用前の必須確認事項
 
@@ -402,6 +421,7 @@ curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
 
 2. **動画生成テスト**
    - ffmpeg/日本語フォント動作確認
+   - VOICEVOX サーバー起動確認
    - 5秒ダミー動画での疎通確認
 
 3. **YouTube投稿テスト**
@@ -412,20 +432,22 @@ curl https://keiba-ai-predictor.onrender.com/api/rate-limit-status
    - 同日2回実行での動作確認
    - publish_key の適切性検証
 
-5. **状態管理の移行検討**
-   - `automation_state.json` は暫定方式
-   - 長期運用ではCMS/外部DBへの移行推奨
+5. **本番BGM選定**
+   - 著作権フリーBGMの準備
+   - BGM音量調整（現在30%）
 
 ### 詳細ドキュメント
 
-**[AUTOMATION.md](AUTOMATION.md)** に完全なセットアップ手順と未検証事項があります。
+- **[AUTOMATION.md](AUTOMATION.md)** - 完全なセットアップ手順と未検証事項
+- **[STABLE_STATE.md](STABLE_STATE.md)** - 現在の成功状態と技術詳細
 
 ## 📄 ドキュメント
 
 | ドキュメント | 説明 |
 |------------|------|
 | **[API_USAGE.md](API_USAGE.md)** | API使い方ガイド（一般ユーザー向け） |
-| **[AUTOMATION.md](AUTOMATION.md)** | コンテンツ自動化の仕組み（NEW） |
+| **[AUTOMATION.md](AUTOMATION.md)** | コンテンツ自動化の仕組み |
+| **[STABLE_STATE.md](STABLE_STATE.md)** | 動画生成システム安定状態メモ（NEW） |
 | **[RENDER_DEPLOY.md](RENDER_DEPLOY.md)** | Render.comデプロイ手順 |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | 各種クラウドプラットフォームへのデプロイ手順 |
 | **[QUICKSTART.md](QUICKSTART.md)** | 開発者向けクイックスタート |
@@ -447,7 +469,7 @@ MIT License
 **作成日**: 2026-03-05
 **作成者**: Claude Code（クロちゃん）
 **協力者**: マコさん
-**最終更新**: 2026-03-05
+**最終更新**: 2026-03-08 (VOICEVOX統合 + BGM修正)
 
 **本番API**: https://keiba-ai-predictor.onrender.com
 **GitHub**: https://github.com/apol0510/keiba-ai-predictor
