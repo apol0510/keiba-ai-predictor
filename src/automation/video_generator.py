@@ -6,7 +6,7 @@ BGM・ナレーション・デザイン改善版
 
 from moviepy.editor import (
     ImageClip, TextClip, CompositeVideoClip,
-    concatenate_videoclips, AudioFileClip, CompositeAudioClip
+    concatenate_videoclips, concatenate_audioclips, AudioFileClip, CompositeAudioClip
 )
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import os
 from pathlib import Path
-from gtts import gTTS
 import tempfile
 import re
 import unicodedata
@@ -25,6 +24,13 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+
+# VOICEVOX TTS (required)
+try:
+    from voicevox_tts import VoicevoxTTS
+    VOICEVOX_AVAILABLE = True
+except ImportError:
+    VOICEVOX_AVAILABLE = False
 
 
 def sanitize_display_text(text: str) -> str:
@@ -116,16 +122,40 @@ def normalize_tts_text(text: str) -> str:
 
     text = str(text)
 
+    # ===== 絵文字の完全除去（Unicode絵文字範囲を一括削除） =====
+    # Unicodeの絵文字ブロック:
+    # 🎯 Emoticons (U+1F600–U+1F64F)
+    # 🔧 Misc Symbols and Pictographs (U+1F300–U+1F5FF)
+    # 🚀 Transport and Map Symbols (U+1F680–U+1F6FF)
+    # 🌈 Supplemental Symbols (U+1F900–U+1F9FF)
+    # その他の絵文字や記号
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # 顔文字
+        "\U0001F300-\U0001F5FF"  # 記号とピクトグラフ
+        "\U0001F680-\U0001F6FF"  # 交通と地図記号
+        "\U0001F700-\U0001F77F"  # 錬金術記号
+        "\U0001F780-\U0001F7FF"  # 幾何学図形拡張
+        "\U0001F800-\U0001F8FF"  # 補助記号とピクトグラフ
+        "\U0001F900-\U0001F9FF"  # 補助記号と絵文字
+        "\U0001FA00-\U0001FA6F"  # チェス記号
+        "\U0001FA70-\U0001FAFF"  # 絵文字拡張A
+        "\U00002600-\U000027BF"  # その他の記号
+        "\U0001F1E0-\U0001F1FF"  # 国旗
+        "]+"
+    )
+    text = emoji_pattern.sub('', text)
+
     # ===== レース番号の正規化 =====
     # "1R", "2R" → "1レース", "2レース"
     text = re.sub(r'(\d{1,2})R\b', r'\1レース', text)
 
-    # ===== 競馬記号の読み =====
-    text = text.replace('◎', '本命、')
-    text = text.replace('○', '対抗、')
-    text = text.replace('▲', '単穴、')
-    text = text.replace('△', '連下、')
-    text = text.replace('×', '抑え、')
+    # ===== 競馬記号の読み（完全除去 - ナレーション構造で対応） =====
+    text = text.replace('◎', '')
+    text = text.replace('○', '')
+    text = text.replace('▲', '')
+    text = text.replace('△', '')
+    text = text.replace('×', '')
 
     # ===== 英字・略語の読み =====
     text = text.replace('AI', 'エーアイ')
@@ -143,17 +173,27 @@ def normalize_tts_text(text: str) -> str:
     text = text.replace('三連単', 'さんれんたん')
     text = text.replace('ワイド', 'わいど')
 
+    # ===== レース名の一般的な略語 =====
+    text = text.replace('Ch', 'チャレンジ')
+    text = text.replace('C', 'カップ')
+    text = text.replace('S', 'ステークス')
+    text = text.replace('H', 'ハンデキャップ')
+
     # ===== 読みにくい記号・句読点 =====
     text = text.replace('・', '、')
-    text = text.replace('！', '')  # 感嘆符は除去
+    text = text.replace('！', '')
     text = text.replace('!', '')
     text = text.replace('★', '')
     text = text.replace('☆', '')
-    text = text.replace('/', 'スラッシュ')
+    text = text.replace('/', '')
+    text = text.replace('　', ' ')  # 全角スペース → 半角スペース
 
     # ===== 数字の読みやすさ改善 =====
     # "3-5-7" → "3、5、7"（オッズ表記など）
     text = re.sub(r'(\d+)-(\d+)-(\d+)', r'\1、\2、\3', text)
+
+    # ===== パーセント表記 =====
+    text = text.replace('%', 'パーセント')
 
     # ===== 空白・改行の整理 =====
     text = re.sub(r'\s+', ' ', text)
@@ -171,17 +211,21 @@ class PredictionVideoGenerator:
 
     def __init__(self, width: int = 1920, height: int = 1080,
                  openai_api_key: Optional[str] = None,
-                 tts_engine: str = 'gtts',
+                 tts_engine: str = 'voicevox',
                  use_ai_backgrounds: bool = False,
-                 background_cache_dir: str = 'cache/backgrounds'):
+                 background_cache_dir: str = 'cache/backgrounds',
+                 voicevox_url: str = 'http://localhost:50021',
+                 voicevox_speaker: int = 1):
         """
         Args:
             width: 動画の幅
             height: 動画の高さ
             openai_api_key: OpenAI APIキー（OpenAI TTS/DALL-E使用時）
-            tts_engine: 'gtts' or 'openai' - 使用するTTSエンジン
+            tts_engine: 'voicevox' or 'openai' - 使用するTTSエンジン
             use_ai_backgrounds: AI生成背景を使用するか
             background_cache_dir: 背景画像キャッシュディレクトリ
+            voicevox_url: VOICEVOXエンジンのURL
+            voicevox_speaker: VOICEVOXの話者ID (1: ずんだもん)
         """
         self.width = width
         self.height = height
@@ -194,6 +238,19 @@ class PredictionVideoGenerator:
         if use_ai_backgrounds:
             self.background_cache_dir.mkdir(parents=True, exist_ok=True)
 
+        # VOICEVOX設定
+        self.voicevox_client = None
+        if tts_engine == 'voicevox' and VOICEVOX_AVAILABLE:
+            try:
+                self.voicevox_client = VoicevoxTTS(
+                    base_url=voicevox_url,
+                    speaker=voicevox_speaker
+                )
+                print(f"✅ VOICEVOX TTS初期化完了（話者ID: {voicevox_speaker}）")
+            except Exception as e:
+                print(f"⚠️  VOICEVOX初期化エラー: {e}")
+                raise RuntimeError(f"VOICEVOX is required but initialization failed: {e}") from e
+
         # OpenAI設定
         self.openai_client = None
         if (tts_engine == 'openai' or use_ai_backgrounds) and OPENAI_AVAILABLE:
@@ -203,8 +260,7 @@ class PredictionVideoGenerator:
             else:
                 print("⚠️  OPENAI_API_KEYが設定されていません。")
                 if tts_engine == 'openai':
-                    print("   gTTSにフォールバックします。")
-                    self.tts_engine = 'gtts'
+                    raise RuntimeError("OpenAI TTS is required but OPENAI_API_KEY is not set")
                 if use_ai_backgrounds:
                     print("   AI背景を無効化します。")
                     self.use_ai_backgrounds = False
@@ -293,21 +349,25 @@ class PredictionVideoGenerator:
         Returns:
             生成された音声ファイルのパス（一時ファイル）
         """
-        try:
-            # ★★★ 必ずすべてのテキストを正規化 ★★★
-            normalized_text = normalize_tts_text(text)
+        # ★★★ 必ずすべてのテキストを正規化 ★★★
+        normalized_text = normalize_tts_text(text)
 
-            # デバッグ: TTS入力を確認
-            print(f"[TTS INPUT] Original: {repr(text)}")
-            print(f"[TTS INPUT] Normalized: {repr(normalized_text)}")
+        # デバッグ: TTS入力を確認
+        print(f"[TTS INPUT] Original: {repr(text)}")
+        print(f"[TTS INPUT] Normalized: {repr(normalized_text)}")
 
-            if self.tts_engine == 'openai' and self.openai_client:
+        if self.tts_engine == 'voicevox' and self.voicevox_client:
+            # VOICEVOX経路では例外を上位へ伝播（デバッグ用）
+            return self._generate_voicevox_tts(normalized_text)
+        elif self.tts_engine == 'openai' and self.openai_client:
+            try:
                 return self._generate_openai_tts(normalized_text)
-            else:
-                return self._generate_gtts(normalized_text)
-        except Exception as e:
-            print(f"⚠️  ナレーション生成エラー: {e}")
-            return None
+            except Exception as e:
+                print(f"⚠️  ナレーション生成エラー: {e}")
+                return None
+        else:
+            # TTS設定エラー
+            raise RuntimeError(f"Invalid TTS engine: {self.tts_engine} or client not available")
 
     def _generate_openai_tts(self, text: str) -> Optional[str]:
         """
@@ -333,27 +393,35 @@ class PredictionVideoGenerator:
             return temp_file.name
         except Exception as e:
             print(f"⚠️  OpenAI TTS生成エラー: {e}")
-            print("   gTTSにフォールバックします...")
-            return self._generate_gtts(text)
+            return None
 
-    def _generate_gtts(self, text: str) -> Optional[str]:
+    def _generate_voicevox_tts(self, text: str) -> Optional[str]:
         """
-        gTTSで音声生成（フォールバック用）
+        VOICEVOXで音声生成
 
         Args:
             text: ナレーション内容
 
         Returns:
             生成された音声ファイルのパス
+
+        Raises:
+            RuntimeError: VOICEVOX生成失敗時、OpenAI TTSへフォールバック
         """
         try:
-            tts = gTTS(text=text, lang='ja', slow=False)
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-            tts.save(temp_file.name)
-            return temp_file.name
+            wav_path = self.voicevox_client.generate(text)
+            print(f"✅ VOICEVOX TTS音声生成: {len(text)}文字")
+            return wav_path
         except Exception as e:
-            print(f"⚠️  gTTS生成エラー: {e}")
-            return None
+            print(f"⚠️  VOICEVOX TTS生成エラー: {e}")
+            # OpenAI TTSにフォールバック（gTTSは使わない）
+            if self.openai_client:
+                print("   OpenAI TTSにフォールバックします...")
+                return self._generate_openai_tts(text)
+            else:
+                # OpenAIも利用不可の場合は明示的にエラー
+                raise RuntimeError(f"VOICEVOX TTS failed and no OpenAI TTS available: {e}") from e
+
 
     def generate_ai_background(self, track: str, scene_type: str = 'opening') -> Optional[str]:
         """
@@ -747,7 +815,7 @@ class PredictionVideoGenerator:
                 if bgm.duration < video_duration:
                     # BGMが短い場合はループ
                     loops = int(video_duration / bgm.duration) + 1
-                    bgm = concatenate_videoclips([bgm] * loops)
+                    bgm = concatenate_audioclips([AudioFileClip(bgm_path) for _ in range(loops)])
                 bgm = bgm.subclip(0, video_duration).volumex(0.3)  # 音量を30%に
 
                 # 既存のナレーションとBGMを合成
@@ -810,7 +878,7 @@ if __name__ == '__main__':
     }
 
     # 環境変数で設定（環境変数で切り替え可能）
-    tts_engine = os.environ.get('TTS_ENGINE', 'gtts')  # 'gtts' or 'openai'
+    tts_engine = os.environ.get('TTS_ENGINE', 'voicevox')  # 'voicevox' or 'openai'
     use_ai_bg = os.environ.get('USE_AI_BACKGROUNDS', 'false').lower() == 'true'
 
     print(f"🎙️  TTS Engine: {tts_engine}")

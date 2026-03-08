@@ -68,3 +68,6 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+output_test/
+create_test_bgm.py
+test_*.py
