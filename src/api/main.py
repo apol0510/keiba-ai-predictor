@@ -209,7 +209,11 @@ async def get_rate_limit_status(request: Request):
 async def get_available_dates():
     """利用可能な日付一覧を取得"""
     dates = race_data_fetcher.get_available_dates(days=7)
-    return {"dates": dates}
+    return {
+        "dates": dates,
+        "checked_days": 8,
+        "available_count": len(dates),
+    }
 
 
 @app.get("/api/races/{date}")

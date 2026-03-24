@@ -11,6 +11,9 @@ import json
 # フォールバック探索日数（当日含まず）
 FALLBACK_MAX_DAYS = 7
 
+# 会場コードサフィックス候補（ファイル名が YYYY-MM-DD-VENUE.json の場合）
+VENUE_SUFFIXES = ['OOI', 'KAW', 'FUN', 'URA']
+
 
 class DailyPredictionAutomation:
     """毎日の予想を自動生成"""
@@ -28,26 +31,44 @@ class DailyPredictionAutomation:
         year, month = date_str.split('-')[0], date_str.split('-')[1]
         return f"{self.data_api_url}/{year}/{month}/{date_str}.json"
 
-    async def _fetch_races_for_date(self, date_str: str) -> Optional[Dict]:
-        """指定日付のレースデータを取得（単一日付）"""
-        url = self._build_race_url(date_str)
+    def _build_candidate_urls(self, date_str: str) -> List[str]:
+        """日付に対する候補URLリストを構築（標準形式 + 会場サフィックス付き）"""
+        year, month = date_str.split('-')[0], date_str.split('-')[1]
+        urls = [f"{self.data_api_url}/{year}/{month}/{date_str}.json"]
+        for venue in VENUE_SUFFIXES:
+            urls.append(f"{self.data_api_url}/{year}/{month}/{date_str}-{venue}.json")
+        return urls
+
+    async def _try_fetch_json(self, url: str) -> Optional[Dict]:
+        """URLからJSONを安全に取得（HTMLレスポンスを除外）"""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, timeout=10.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data and 'races' in data:
-                        return data
-                    else:
-                        print(f"  ⚠️  レスポンスにracesフィールドがありません: {date_str}")
-                elif response.status_code == 404:
-                    pass  # データなし（正常系）
-                else:
-                    print(f"  ⚠️  HTTPステータス {response.status_code}: {date_str}")
+                if response.status_code != 200:
+                    return None
+                content_type = response.headers.get('content-type', '')
+                if 'html' in content_type and 'json' not in content_type:
+                    print(f"  ⚠️  HTMLレスポンス検出（JSON期待）: {url}")
+                    return None
+                data = response.json()
+                if data and 'races' in data:
+                    return data
+                print(f"  ⚠️  レスポンスにracesフィールドがありません: {url}")
         except httpx.TimeoutException:
-            print(f"  ⚠️  タイムアウト: {date_str}")
+            print(f"  ⚠️  タイムアウト: {url}")
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"  ⚠️  JSON解析エラー: {url} ({e})")
         except Exception as e:
-            print(f"  ⚠️  レースデータ取得エラー ({date_str}): {e}")
+            print(f"  ⚠️  レースデータ取得エラー: {url} ({e})")
+        return None
+
+    async def _fetch_races_for_date(self, date_str: str) -> Optional[Dict]:
+        """指定日付のレースデータを取得（標準形式 + 会場サフィックス付きを探索）"""
+        for url in self._build_candidate_urls(date_str):
+            data = await self._try_fetch_json(url)
+            if data:
+                print(f"  ✅ データ取得成功: {url}")
+                return data
         return None
 
     async def get_today_races(self) -> Optional[Dict]:

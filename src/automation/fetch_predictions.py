@@ -9,6 +9,49 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+# 会場コードサフィックス候補
+VENUE_SUFFIXES = ['OOI', 'KAW', 'FUN', 'URA']
+
+
+def _try_fetch_json(client: httpx.Client, url: str) -> Optional[Dict]:
+    """URLからJSONを安全に取得（HTMLレスポンスを除外）"""
+    try:
+        response = client.get(url)
+        if response.status_code != 200:
+            return None
+        content_type = response.headers.get('content-type', '')
+        if 'html' in content_type and 'json' not in content_type:
+            return None
+        data = response.json()
+        if data and 'races' in data:
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def _find_json_for_date(client: httpx.Client, base_url: str, track: str, date_str: str) -> Optional[Dict]:
+    """指定日付のJSONを探索（標準形式 + 会場サフィックス付き）"""
+    year = date_str[:4]
+    month = date_str[5:7]
+
+    # 標準形式: YYYY-MM-DD.json
+    url = f"{base_url}/{track}/predictions/{year}/{month}/{date_str}.json"
+    data = _try_fetch_json(client, url)
+    if data:
+        print(f"  ✅ データ取得成功: {url}")
+        return data
+
+    # 会場サフィックス付き: YYYY-MM-DD-VENUE.json
+    for venue in VENUE_SUFFIXES:
+        url = f"{base_url}/{track}/predictions/{year}/{month}/{date_str}-{venue}.json"
+        data = _try_fetch_json(client, url)
+        if data:
+            print(f"  ✅ データ取得成功: {url}")
+            return data
+
+    return None
+
 
 def fetch_track_predictions(api_base_url: str, track: str, fallback_days: int = 7) -> Optional[Dict]:
     """
@@ -25,55 +68,26 @@ def fetch_track_predictions(api_base_url: str, track: str, fallback_days: int = 
     with httpx.Client(timeout=30.0) as client:
         # 本日から過去N日分を試行
         for days_back in range(fallback_days + 1):
-            try:
-                target_date = datetime.now() - timedelta(days=days_back)
-                year = target_date.strftime('%Y')
-                month = target_date.strftime('%m')
-                date_str = target_date.strftime('%Y-%m-%d')
+            target_date = datetime.now() - timedelta(days=days_back)
+            date_str = target_date.strftime('%Y-%m-%d')
 
-                # keiba-data-shared URL構築
-                # Format: https://keiba-data-shared.netlify.app/{track}/predictions/{year}/{month}/{date}.json
-                url = f"{api_base_url}/{track}/predictions/{year}/{month}/{date_str}.json"
+            if days_back == 0:
+                print(f"📡 予想データ取得中: {date_str}")
+            else:
+                print(f"📡 フォールバック: {days_back}日前のデータを試行 ({date_str})")
 
-                if days_back == 0:
-                    print(f"📡 予想データ取得中: {url}")
-                else:
-                    print(f"📡 フォールバック: {days_back}日前のデータを試行 ({date_str})")
-
-                # データ取得
-                response = client.get(url)
-
-                # 404 の場合は次の日付を試行
-                if response.status_code == 404:
-                    if days_back == 0:
-                        print(f"⚠️  本日のデータが見つかりません")
-                        print(f"   過去{fallback_days}日分のデータを検索します...")
-                    continue
-
-                response.raise_for_status()
-
-                data = response.json()
-
-                if not data or 'races' not in data:
-                    print(f"⚠️  レースデータが含まれていません")
-                    continue
-
+            data = _find_json_for_date(client, api_base_url, track, date_str)
+            if data:
                 if days_back > 0:
                     print(f"✅ {days_back}日前の予想データを使用: {track} ({date_str})")
                 else:
                     print(f"✅ 予想データ取得成功: {track}")
                 print(f"   レース数: {len(data['races'])}")
-
                 return data
-
-            except httpx.HTTPStatusError as e:
-                if days_back == fallback_days:
-                    print(f"❌ HTTPエラー ({e.response.status_code}): {e}")
-                continue
-            except Exception as e:
-                if days_back == fallback_days:
-                    print(f"❌ 予想データ取得失敗: {e}")
-                continue
+            else:
+                if days_back == 0:
+                    print(f"⚠️  本日のデータが見つかりません")
+                    print(f"   過去{fallback_days}日分のデータを検索します...")
 
         # すべての試行が失敗
         print(f"❌ 過去{fallback_days}日間のデータが見つかりませんでした")
