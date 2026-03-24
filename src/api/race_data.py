@@ -16,12 +16,12 @@ class RaceDataFetcher:
         self.base_url = base_url
 
     def get_available_dates(self, days: int = 7) -> List[str]:
-        """利用可能な日付リストを取得（今日から指定日数分）"""
+        """利用可能な日付リストを取得（今日から過去days日分を探索）"""
         dates = []
         today = datetime.now()
 
-        for i in range(days):
-            date = today + timedelta(days=i)
+        for i in range(days + 1):
+            date = today - timedelta(days=i)
             date_str = date.strftime('%Y-%m-%d')
             year, month = date.year, date.strftime('%m')
 

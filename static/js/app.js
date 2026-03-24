@@ -26,17 +26,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/dates');
             const data = await response.json();
 
-            raceDateSelect.innerHTML = '<option value="">選択してください</option>';
-            data.dates.forEach(date => {
+            if (data.dates.length === 0) {
+                raceDateSelect.innerHTML = '<option value="">直近の開催データがありません</option>';
+                return;
+            }
+
+            raceDateSelect.innerHTML = '<option value="">開催日を選択してください</option>';
+            data.dates.forEach((date, index) => {
                 const option = document.createElement('option');
                 option.value = date;
-                option.textContent = formatDate(date);
+                const label = formatDate(date);
+                option.textContent = index === 0 ? `${label}（最新開催）` : label;
                 raceDateSelect.appendChild(option);
             });
 
-            if (data.dates.length === 0) {
-                raceDateSelect.innerHTML = '<option value="">データがありません</option>';
-            }
+            // 最新日を自動選択
+            raceDateSelect.value = data.dates[0];
+            selectedDate = data.dates[0];
+            btnNextRaceList.disabled = false;
         } catch (error) {
             console.error('Error loading dates:', error);
             raceDateSelect.innerHTML = '<option value="">読み込みエラー</option>';
