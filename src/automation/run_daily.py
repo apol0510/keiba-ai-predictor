@@ -63,6 +63,7 @@ async def main():
     # ===========================
     print("📊 Step 1: AI予想 + 記事コンテンツ生成")
     print("-" * 60)
+    print(f"  対象トラック: {target_track}")
 
     article = None
     article_path = None
@@ -71,18 +72,30 @@ async def main():
             api_base_url=os.getenv('API_BASE_URL', 'https://keiba-ai-predictor.onrender.com')
         )
 
-        # 記事コンテンツ生成（CMS公開は別処理）
+        # 記事コンテンツ生成（フォールバック付き）
         article = await prediction_system.generate_article_content(top_n=3)
 
         if not article['success']:
-            print(f"❌ エラー: {article['message']}")
-            print("本日のレースデータが見つかりません。")
-            return 1
+            if article.get('skip', False):
+                # データなし → 正常スキップ（exit 0）
+                print(f"\n📭 {article['message']}")
+                print("📌 本日の自動投稿はスキップします")
+                print(f"\n{'=' * 60}")
+                print("⏭️  最終判断: スキップ正常終了（レースデータなし）")
+                print(f"{'=' * 60}")
+                return 0
+            else:
+                # 本当の異常（JSON破損、必須フィールド欠落など）
+                print(f"❌ エラー: {article['message']}")
+                return 1
 
         print(f"✅ 記事コンテンツ生成完了")
         print(f"  タイトル: {article['title']}")
         print(f"  レース数: {len(article['predictions'])}")
-        print(f"  競馬場: {article['track']}\n")
+        print(f"  競馬場: {article['track']}")
+        if article.get('is_fallback'):
+            print(f"  ⚠️  フォールバックデータ使用: {article['adopted_date']}")
+        print()
 
         # ローカル保存
         output_dir = Path('output')
