@@ -71,3 +71,7 @@ dmypy.json
 output_test/
 create_test_bgm.py
 test_*.py
+node_modules
+dist
+.astro
+.env.*
